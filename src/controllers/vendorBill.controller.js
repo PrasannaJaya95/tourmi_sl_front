@@ -1,0 +1,483 @@
+const prisma = require('../lib/prisma');
+const billingService = require('../services/billing.service');
+const jwt = require('jsonwebtoken');
+
+const BILL_SHARE_TOKEN_TTL = '7d';
+
+function getBackendBaseUrlFromReq(req) {
+    const origin = req.headers.origin || req.headers.referer;
+    if (!origin) return 'http://localhost:5000';
+    try {
+        const u = new URL(origin);
+        u.port = '5000';
+        return u.origin;
+    } catch {
+        return 'http://localhost:5000';
+    }
+}
+
+function buildVendorBillShareLink(req, billId) {
+    const token = jwt.sign({ billId }, process.env.JWT_SECRET, { expiresIn: BILL_SHARE_TOKEN_TTL });
+    const backendBase = getBackendBaseUrlFromReq(req);
+    return `${backendBase}/api/vendor-bills/share/${billId}?token=${encodeURIComponent(token)}`;
+}
+
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+async function getCompanyProfileFromSettings() {
+    const [nameSetting, addressSetting, logoSetting, contactSetting, whatsappSetting] = await Promise.all([
+        prisma.systemSetting.findUnique({ where: { key: 'company_name' } }),
+        prisma.systemSetting.findUnique({ where: { key: 'company_address' } }),
+        prisma.systemSetting.findUnique({ where: { key: 'company_logo' } }),
+        prisma.systemSetting.findUnique({ where: { key: 'company_contact_number' } }),
+        prisma.systemSetting.findUnique({ where: { key: 'company_whatsapp_number' } })
+    ]);
+
+    const name = nameSetting?.value && nameSetting.value !== 'false' ? (nameSetting.value || '') : '';
+    const address = addressSetting?.value && addressSetting.value !== 'false' ? (addressSetting.value || '') : '';
+    const logoUrl = logoSetting?.value && logoSetting.value !== 'false' ? (logoSetting.value || null) : null;
+    const contactNumber = contactSetting?.value && contactSetting.value !== 'false' ? (contactSetting.value || '') : '';
+    const whatsappNumber = whatsappSetting?.value && whatsappSetting.value !== 'false' ? (whatsappSetting.value || '') : '';
+
+    return { name, address, logoUrl, contactNumber, whatsappNumber };
+}
+
+function renderVendorBillHtml(bill, company) {
+    const items = Array.isArray(bill.items) ? bill.items : [];
+    const vendorName = bill.vendor?.name || '';
+    const vehiclePlate = bill.vehicle?.licensePlate || '';
+    const totalAmount = Number(bill.totalAmount || 0);
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const billPeriod = `${monthNames[bill.month - 1]} ${bill.year}`;
+
+    const companyName = company?.name || '';
+    const companyAddress = company?.address || '';
+    const companyLogoUrl = company?.logoUrl || null;
+
+    const showCompanyBrand = !!companyName.trim();
+    const companyLogoHtml = companyLogoUrl
+        ? `<img src="${escapeHtml(companyLogoUrl)}" alt="Logo" style="height:52px; width:52px; object-fit:contain; border-radius:10px; background:rgba(255,255,255,0.6);" />`
+        : '';
+        
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Vendor Bill - ${escapeHtml(bill.billNumber)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+    .muted { color:#555; font-size:12px; }
+    table { width:100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 10px 6px; text-align:left; font-size: 13px; }
+    th { font-size: 11px; text-transform: uppercase; color:#444; }
+    .right { text-align:right; }
+    .total { font-weight: 800; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div style="margin-bottom:18px; display:flex; align-items:center; gap:14px;">
+    ${showCompanyBrand ? companyLogoHtml : ''}
+    <div>
+      <div style="font-weight:900;font-size:20px;">${escapeHtml(companyName)}</div>
+      <div class="muted">${escapeHtml(companyAddress)}</div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between;">
+    <div>
+      <div style="font-weight:900; font-size:22px;">VENDOR BILL</div>
+      <div class="muted">Bill No: <b>${escapeHtml(bill.billNumber)}</b></div>
+      <div class="muted">Period: <b>${escapeHtml(billPeriod)}</b></div>
+    </div>
+    <div style="text-align:right;">
+      <div class="muted">Status</div>
+      <div style="font-weight:900;">${escapeHtml(bill.status)}</div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <div class="muted">Vendor</div>
+    <div style="font-weight:700;">${escapeHtml(vendorName)}</div>
+    <div class="muted">Vehicle Plate: <b>${escapeHtml(vehiclePlate)}</b></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Description</th><th class="right">Amount (LKR)</th></tr>
+    </thead>
+    <tbody>
+      ${items.map(item => `
+        <tr>
+          <td>${escapeHtml(item.description)}</td>
+          <td class="right">${escapeHtml(Number(item.amount).toLocaleString())}</td>
+        </tr>
+      `).join('')}
+      <tr>
+        <td class="total">Total Payable</td>
+        <td class="total right">${escapeHtml(totalAmount.toLocaleString())}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="muted" style="margin-top:24px;">
+    This is a system-generated settlement bill for vehicle hire and related expenses.
+  </div>
+  <div class="muted" style="margin-top:8px;text-align:center;">
+    Powered by Rentix All Rights Reserved. Codebraze PVT LTD 070 2 78 78 73
+  </div>
+</body>
+</html>`;
+}
+
+const generateBillNumber = async () => {
+    // Generate Code: Vendor-Bill/00001 via SystemSetting sequence
+    const sequenceRecord = await prisma.$transaction(async (tx) => {
+        let record = await tx.systemSetting.findUnique({ where: { key: 'vendor_bill_sequence' } });
+        if (!record) {
+            return await tx.systemSetting.create({ data: { key: 'vendor_bill_sequence', value: '1' } });
+        } else {
+            const nextVal = parseInt(record.value) + 1;
+            return await tx.systemSetting.update({
+                where: { key: 'vendor_bill_sequence' },
+                data: { value: nextVal.toString() }
+            });
+        }
+    });
+
+    const nextNumber = parseInt(sequenceRecord.value);
+    return `Vendor-Bill/${String(nextNumber).padStart(5, '0')}`;
+};
+
+exports.getVendorBills = async (req, res) => {
+    try {
+        const { vendorId, vehicleId, status, dateRange, filterType, search } = req.query;
+
+        const now = new Date();
+        let start, end;
+
+        if (filterType === 'today') {
+            start = new Date(now.setHours(0, 0, 0, 0));
+            end = new Date(now.setHours(23, 59, 59, 999));
+        } else if (filterType === 'last7days') {
+            start = new Date(now.setDate(now.getDate() - 7));
+            end = new Date();
+        } else if (filterType === 'last30days') {
+            start = new Date(now.setDate(now.getDate() - 30));
+            end = new Date();
+        } else if (dateRange) {
+            const [s, e] = JSON.parse(dateRange);
+            start = new Date(s);
+            end = new Date(e);
+        }
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const where = {
+            ...(vendorId && { vendorId }),
+            ...(vehicleId && { vehicleId }),
+            ...(status && { status }),
+            ...((start && end) && {
+                createdAt: {
+                    gte: start,
+                    lte: end
+                }
+            })
+        };
+
+        if (search) {
+            where.OR = [
+                { billNumber: { contains: search, mode: 'insensitive' } },
+                { vendor: { name: { contains: search, mode: 'insensitive' } } },
+                { vehicle: { licensePlate: { contains: search, mode: 'insensitive' } } }
+            ];
+        }
+
+        const [bills, totalCount] = await Promise.all([
+            prisma.vendorBill.findMany({
+                where,
+                include: {
+                    vendor: { 
+                        select: { 
+                            name: true, 
+                            email: true,
+                            vendorDetails: { select: { phone: true } }
+                        } 
+                    },
+                    vehicle: { select: { licensePlate: true, vehicleModel: { include: { brand: true } } } },
+                    items: true,
+                    maintenances: true,
+                    expenses: true
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            }),
+            prisma.vendorBill.count({ where })
+        ]);
+
+        res.json({
+            data: bills,
+            pagination: {
+                total: totalCount,
+                page,
+                limit,
+                totalPages: Math.ceil(totalCount / limit)
+            }
+        });
+    } catch (error) {
+        console.error("Get Vendor Bills Error:", error);
+        res.status(500).json({ message: 'Failed to fetch vendor bills' });
+    }
+};
+
+const fs = require('fs');
+
+exports.createVendorBill = async (req, res) => {
+    try {
+        const { vendorId, vehicleId, month, year, items, description, monthlyPayment, billingType, billingFrom, billingTo } = req.body;
+
+        const billNumber = await generateBillNumber();
+
+        const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+        let parsedMonth = parseInt(month);
+        let parsedYear = parseInt(year);
+        
+        if (billingType === 'SHORT_TERM' && billingFrom) {
+            const date = new Date(billingFrom);
+            parsedMonth = date.getMonth() + 1;
+            parsedYear = date.getFullYear();
+        }
+
+        const bill = await prisma.vendorBill.create({
+            data: {
+                billNumber,
+                vendor: { connect: { id: vendorId } },
+                vehicle: { connect: { id: vehicleId } },
+                month: parsedMonth,
+                year: parsedYear,
+                billingType: billingType || 'LONG_TERM',
+                billingFrom: billingFrom ? new Date(billingFrom) : null,
+                billingTo: billingTo ? new Date(billingTo) : null,
+                monthlyPayment: parseFloat(monthlyPayment) || totalAmount,
+                repairDeductions: 0,
+                expenseDeductions: 0,
+                totalAmount: totalAmount,
+                description,
+                status: 'PENDING',
+                items: {
+                    create: items.map(item => ({
+                        description: item.description,
+                        amount: parseFloat(item.amount)
+                    }))
+                }
+            },
+            include: {
+                items: true,
+                vendor: { 
+                    select: { 
+                        name: true,
+                        vendorDetails: { select: { phone: true } }
+                    } 
+                },
+                vehicle: { select: { licensePlate: true } }
+            }
+        });
+
+        res.status(201).json(bill);
+    } catch (error) {
+        const errorDetails = {
+            timestamp: new Date().toISOString(),
+            body: req.body,
+            error: error.message,
+            code: error.code,
+            meta: error.meta,
+            stack: error.stack
+        };
+        console.error("Create Vendor Bill Error:", error);
+        fs.writeFileSync('/tmp/vendor_bill_error.json', JSON.stringify(errorDetails, null, 2));
+        res.status(400).json({ message: error.message || 'Failed to create vendor bill' });
+    }
+};
+
+exports.updateVendorBill = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { month, year, items, description, monthlyPayment, billingType, billingFrom, billingTo } = req.body;
+
+        // Check if bill exists and is pending
+        const existingBill = await prisma.vendorBill.findUnique({ where: { id } });
+        if (!existingBill) return res.status(404).json({ message: 'Bill not found' });
+        if (existingBill.status !== 'PENDING') return res.status(400).json({ message: 'Only pending bills can be edited' });
+
+        const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+        let parsedMonth = parseInt(month);
+        let parsedYear = parseInt(year);
+        
+        if (billingType === 'SHORT_TERM' && billingFrom) {
+            const date = new Date(billingFrom);
+            parsedMonth = date.getMonth() + 1;
+            parsedYear = date.getFullYear();
+        }
+
+        // Update bill and items using transaction
+        const updatedBill = await prisma.$transaction(async (tx) => {
+            // Delete existing items
+            await tx.vendorBillItem.deleteMany({ where: { vendorBillId: id } });
+
+            // Update main bill and create new items
+            return await tx.vendorBill.update({
+                where: { id },
+                data: {
+                    month: parsedMonth,
+                    year: parsedYear,
+                    billingType: billingType || 'LONG_TERM',
+                    billingFrom: billingFrom ? new Date(billingFrom) : null,
+                    billingTo: billingTo ? new Date(billingTo) : null,
+                    monthlyPayment: parseFloat(monthlyPayment) || totalAmount,
+                    totalAmount: totalAmount,
+                    description,
+                    items: {
+                        create: items.map(item => ({
+                            description: item.description,
+                            amount: parseFloat(item.amount)
+                        }))
+                    }
+                },
+                include: { 
+                    items: true, 
+                    vendor: { 
+                        select: { 
+                            name: true,
+                            vendorDetails: { select: { phone: true } }
+                        } 
+                    }, 
+                    vehicle: { select: { licensePlate: true } } 
+                }
+            });
+        });
+
+        res.json(updatedBill);
+    } catch (error) {
+        console.error("Update Vendor Bill Error:", error);
+        res.status(400).json({ message: error.message || 'Failed to update vendor bill' });
+    }
+};
+
+exports.generateBills = async (req, res) => {
+    try {
+        const { month, year, vehicleId } = req.body;
+        // Updated service will need to handle sequential numbering too
+        const bills = await billingService.generateMonthlyVendorBills(month, year, vehicleId);
+        res.json({ message: `Successfully generated ${bills.length} bills`, bills });
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Failed to generate bills' });
+    }
+};
+
+exports.updateBillStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const bill = await prisma.vendorBill.update({
+            where: { id },
+            data: { status }
+        });
+        res.json(bill);
+    } catch (error) {
+        res.status(400).json({ message: 'Failed to update bill status' });
+    }
+};
+
+exports.deleteVendorBill = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Find existing bill to handle relations
+        const bill = await prisma.vendorBill.findUnique({
+            where: { id },
+            include: { maintenances: true, expenses: true }
+        });
+
+        if (!bill) return res.status(404).json({ message: 'Bill not found' });
+
+        await prisma.$transaction([
+            // 1. Reset maintenance links
+            prisma.maintenance.updateMany({
+                where: { vendorBillId: id },
+                data: { vendorBillId: null, isRealized: false }
+            }),
+            // 2. Reset expense links
+            prisma.vehicleExpense.updateMany({
+                where: { vendorBillId: id },
+                data: { vendorBillId: null, isRealized: false }
+            }),
+            // 3. Delete the bill (VendorBillItem deleted by Cascade defined in schema)
+            prisma.vendorBill.delete({ where: { id } })
+        ]);
+
+        res.json({ message: 'Vendor bill deleted successfully' });
+    } catch (error) {
+        console.error("Delete Vendor Bill Error:", error);
+        res.status(500).json({ message: 'Failed to delete vendor bill' });
+    }
+};
+
+exports.getVendorBillShareLink = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const bill = await prisma.vendorBill.findUnique({ where: { id } });
+        if (!bill) return res.status(404).json({ message: 'Bill not found' });
+
+        const shareUrl = buildVendorBillShareLink(req, bill.id);
+        res.json({ shareUrl });
+    } catch (error) {
+        console.error('Get Vendor Bill Share Link Error:', error);
+        res.status(500).json({ message: 'Failed to generate share link' });
+    }
+};
+
+exports.getSharedVendorBill = async (req, res) => {
+    try {
+        const { billId } = req.params;
+        const { token } = req.query;
+        if (!token) return res.status(401).send('Missing token');
+
+        let payload;
+        try {
+            payload = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (error) {
+            return res.status(401).send('Invalid or expired token');
+        }
+
+        if (!payload?.billId || payload.billId !== billId) return res.status(403).send('Forbidden');
+
+        const bill = await prisma.vendorBill.findUnique({
+            where: { id: billId },
+            include: {
+                vendor: { select: { name: true } },
+                vehicle: { select: { licensePlate: true } },
+                items: true
+            }
+        });
+
+        if (!bill) return res.status(404).send('Bill not found');
+        const company = await getCompanyProfileFromSettings();
+        res.type('text/html').send(renderVendorBillHtml(bill, company));
+    } catch (error) {
+        console.error('Get Shared Vendor Bill Error:', error);
+        res.status(500).send('Failed to load bill');
+    }
+};
+
