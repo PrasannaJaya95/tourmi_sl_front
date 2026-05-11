@@ -321,7 +321,7 @@ const AdvanceReceipts = () => {
                                         <span
                                             className={
                                                 r.reversedAt
-                                                    ? 'text-amber-700'
+                                                    ? 'text-blue-700'
                                                     : r.ledgerPostedAt
                                                       ? 'text-emerald-700'
                                                       : 'text-muted-foreground'
@@ -357,8 +357,8 @@ const AdvanceReceipts = () => {
                         </DialogDescription>
                     </DialogHeader>
                     {docMode === 'rarPreview' && (
-                        <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-                            <p className="text-xs font-bold text-amber-800">
+                        <div className="space-y-2 rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
+                            <p className="text-xs font-bold text-blue-800">
                                 Preview only — confirming issues an RAR and removes this payment from P&amp;L.
                             </p>
                             <Textarea

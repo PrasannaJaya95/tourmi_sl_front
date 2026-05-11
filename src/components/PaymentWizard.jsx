@@ -333,7 +333,7 @@ const PaymentWizard = ({ open, onOpenChange, vehicles, customers, onSubmit, load
                                                 checked={showAllVehicles}
                                                 onChange={(e) => setShowAllVehicles(e.target.checked)}
                                             />
-                                            <Label htmlFor="advancePay" className="text-xs cursor-pointer select-none font-medium text-amber-500">
+                                            <Label htmlFor="advancePay" className="text-xs cursor-pointer select-none font-medium text-blue-500">
                                                 Advance Payment / Show All
                                             </Label>
                                         </div>
@@ -437,7 +437,7 @@ const PaymentWizard = ({ open, onOpenChange, vehicles, customers, onSubmit, load
                                                                         <span key={pIdx} className={cn(
                                                                             "px-1.5 py-0.5 rounded text-xs font-bold border",
                                                                             p.status === 'PAID' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50" :
-                                                                                p.status === 'PENDING' ? "bg-amber-500/10 text-amber-400 border-amber-500/50" :
+                                                                                p.status === 'PENDING' ? "bg-blue-500/10 text-blue-400 border-blue-500/50" :
                                                                                     "bg-red-500/10 text-red-400 border-red-500/50"
                                                                         )}>
                                                                             {p.status}
@@ -450,7 +450,7 @@ const PaymentWizard = ({ open, onOpenChange, vehicles, customers, onSubmit, load
                                                                         {formatDateRange(activeBooking.startDate, activeBooking.endDate, { separator: ' - ' })}
                                                                     </div>
                                                                 ) : (
-                                                                    <div className="flex items-center gap-2 text-xs text-amber-500/80 ml-6 pt-1">
+                                                                    <div className="flex items-center gap-2 text-xs text-blue-500/80 ml-6 pt-1">
                                                                         <Flag className="w-3 h-3" />
                                                                         <span>New Booking</span>
                                                                     </div>

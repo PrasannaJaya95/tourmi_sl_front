@@ -145,7 +145,7 @@ const VehicleRepair = () => {
 
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'PENDING': return <Clock className="w-4 h-4 text-amber-500" />;
+            case 'PENDING': return <Clock className="w-4 h-4 text-blue-500" />;
             case 'IN_PROGRESS': return <PlayCircle className="w-4 h-4 text-blue-500" />;
             case 'DONE': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
             default: return null;
@@ -273,7 +273,7 @@ const VehicleRepair = () => {
                                         "inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm",
                                         repair.status === 'DONE' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
                                             repair.status === 'IN_PROGRESS' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                                                "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                                "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                                     )}>
                                         {getStatusIcon(repair.status)}
                                         {repair.status.replace('_', ' ')}

@@ -328,7 +328,7 @@ const DriverManagement = () => {
                 <TableCell className="py-6">
                     <Badge className={cn(
                         "rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-widest border-none shadow-sm",
-                        isLeave ? "bg-amber-100 text-amber-600 hover:bg-amber-100" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                        isLeave ? "bg-blue-100 text-blue-600 hover:bg-blue-100" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-100"
                     )}>
                         {status.replace('_', ' ')}
                     </Badge>

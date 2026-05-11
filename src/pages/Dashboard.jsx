@@ -232,16 +232,16 @@ const Dashboard = () => {
         let glowColor = 'rgba(100, 116, 139, 0.18)';
 
         if (event.status === 'UPCOMING') {
-            bgColor = 'rgba(139, 92, 246, 0.18)';     // Violet 500 @ 18%
-            borderColor = '#8b5cf6';
-            textColor = '#5b21b6';                    // Violet 800
-            glowColor = 'rgba(139, 92, 246, 0.22)';
+            bgColor = 'rgba(79, 70, 229, 0.18)';     // Indigo 600 @ 18%
+            borderColor = '#4f46e5';
+            textColor = '#312e81';                    // Indigo 900
+            glowColor = 'rgba(79, 70, 229, 0.22)';
         }
         if (event.status === 'IN_PROGRESS') {
-            bgColor = 'rgba(234, 179, 8, 0.22)';      // Yellow 500 @ 22%
-            borderColor = '#eab308';
-            textColor = '#854d0e';                    // Yellow 800
-            glowColor = 'rgba(234, 179, 8, 0.25)';
+            bgColor = 'rgba(59, 130, 246, 0.18)';      // Blue 500 @ 18%
+            borderColor = '#3b82f6';
+            textColor = '#1e40af';                    // Blue 800
+            glowColor = 'rgba(59, 130, 246, 0.22)';
         }
 
         return {
@@ -360,7 +360,7 @@ const Dashboard = () => {
     const pieData = [
         { name: 'Available', value: statusCounts.available, color: '#10b981' }, // Emerald
         { name: 'Rented', value: statusCounts.rented, color: '#3b82f6' }, // Blue
-        { name: 'Maint.', value: statusCounts.maintenance, color: '#f59e0b' }, // Amber
+        { name: 'Maint.', value: statusCounts.maintenance, color: '#3b82f6' }, // Blue instead of Amber
     ];
 
     const barData = [
@@ -540,11 +540,11 @@ const Dashboard = () => {
                         </span>
                     </div>
                     <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-violet-500/20 border border-violet-500/40 rounded-full text-violet-700 dark:text-violet-300 font-black shadow-md">
-                            <div className="w-2.5 h-2.5 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]"></div> Upcoming
+                        <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/20 border border-indigo-500/40 rounded-full text-indigo-700 dark:text-indigo-300 font-black shadow-md">
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.5)]"></div> Upcoming
                         </div>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 border border-yellow-500/40 rounded-full text-yellow-700 dark:text-yellow-300 font-black shadow-md">
-                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div> In Progress
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/40 rounded-full text-blue-700 dark:text-blue-300 font-black shadow-md">
+                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> In Progress
                         </div>
                         <div className="text-muted-foreground ml-2 italic hidden md:block">* Click event to view contract</div>
                     </div>

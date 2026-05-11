@@ -350,7 +350,7 @@ const VehicleListing = () => {
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">Status</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`w-2 h-2 rounded-full ${car.status === 'AVAILABLE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`}></span>
+                                                    <span className={`w-2 h-2 rounded-full ${car.status === 'AVAILABLE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-blue-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`}></span>
                                                     <span className="text-xs font-black text-foreground uppercase tracking-widest">{car.status}</span>
                                                 </div>
                                             </div>

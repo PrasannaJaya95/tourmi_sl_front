@@ -969,7 +969,7 @@ export default function VendorBills() {
                                                 {formatBillPeriodLabel(bill)}
                                             </span>
                                             {bill.billingType === 'SHORT_TERM' && (
-                                                <Badge variant="outline" className="mt-1 text-[8px] font-black uppercase tracking-tighter w-fit border-amber-500/30 text-amber-700 bg-amber-500/5">
+                                                <Badge variant="outline" className="mt-1 text-[8px] font-black uppercase tracking-tighter w-fit border-blue-500/30 text-blue-700 bg-blue-500/5">
                                                     Short term
                                                 </Badge>
                                             )}

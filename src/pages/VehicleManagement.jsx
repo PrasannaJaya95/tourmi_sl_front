@@ -746,7 +746,7 @@ const VehicleManagement = () => {
                                 showAlert = true;
                             } else if (diffDays <= 30 && diffDays > 14) {
 
-                                alertColor = "bg-yellow-500/10 border-yellow-500 text-yellow-600";
+                                alertColor = "bg-blue-500/10 border-blue-500 text-blue-600";
                                 alertText = `Contract expires in ${diffDays} days.`;
                                 showAlert = true;
                             }

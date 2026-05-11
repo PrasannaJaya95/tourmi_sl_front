@@ -25,7 +25,7 @@ const MyBookings = () => {
                             <CardContent>
                                 <div className="text-2xl font-bold text-white">{booking.date}</div>
                                 <p className="text-xs text-slate-400">
-                                    Status: <span className={booking.status === 'Confirmed' ? 'text-emerald-400' : 'text-amber-400'}>{booking.status}</span>
+                                    Status: <span className={booking.status === 'Confirmed' ? 'text-emerald-400' : 'text-blue-400'}>{booking.status}</span>
                                 </p>
                             </CardContent>
                         </Card>

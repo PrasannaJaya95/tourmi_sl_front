@@ -267,12 +267,12 @@ const Payments = () => {
                                     <TableCell className="py-6">
                                         <span className={cn("inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] shadow-sm border",
                                             payment.status === 'PAID' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                                                payment.status === 'PENDING' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                                payment.status === 'PENDING' ? "bg-blue-50 text-blue-600 border-blue-100" :
                                                     "bg-rose-50 text-rose-600 border-rose-100"
                                         )}>
                                             <span className={cn("mr-2 h-1.5 w-1.5 rounded-full",
                                                 payment.status === 'PAID' ? "bg-emerald-500" :
-                                                    payment.status === 'PENDING' ? "bg-amber-500" : "bg-rose-500"
+                                                    payment.status === 'PENDING' ? "bg-blue-500" : "bg-rose-500"
                                             )}></span>
                                             {payment.status}
                                         </span>

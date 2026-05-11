@@ -1545,7 +1545,7 @@ const Contracts = () => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {vehiclesForContractSelect.map((v) => (
-                                                    <SelectItem key={v.id} value={v.id} className={cn(v.status === 'RENTED' && "text-amber-600 italic")}>
+                                                    <SelectItem key={v.id} value={v.id} className={cn(v.status === 'RENTED' && "text-blue-600 italic")}>
                                                         {v.licensePlate} - {v.vehicleModel?.name}
                                                         {v.fleetCategory?.name ? ` · ${v.fleetCategory.name}` : ''}
                                                         {v.status === 'RENTED' ? ' (Currently Rented)' : ''}
@@ -2571,7 +2571,7 @@ const Contracts = () => {
                                             </div>
                                             <div className="pt-3 border-t border-primary/10 flex justify-between items-center">
                                                 <span className="font-black text-xs uppercase tracking-widest text-primary">Balance Payment Amount</span>
-                                                <span className="text-xl font-black text-amber-600">
+                                                <span className="text-xl font-black text-blue-600">
                                                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR' }).format(balanceDueNow)}
                                                 </span>
                                             </div>
@@ -3356,15 +3356,14 @@ const Contracts = () => {
                             <div className="flex flex-col h-full overflow-hidden">
                                 {/* Header */}
                                 <div className={cn(
-                                    "p-8 pb-6 bg-gradient-to-br",
-                                    isReturn ? "from-purple-500/10 via-background to-background" : "from-blue-500/10 via-background to-background"
+                                    isReturn ? "from-sky-500/10 via-background to-background" : "from-blue-500/10 via-background to-background"
                                 )}>
                                     <div className="flex justify-between items-start">
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2">
                                                 <div className={cn(
                                                     "h-10 w-10 rounded-xl flex items-center justify-center shadow-sm",
-                                                    isReturn ? "bg-purple-500 text-white" : "bg-blue-600 text-white"
+                                                    isReturn ? "bg-sky-500 text-white" : "bg-blue-600 text-white"
                                                 )}>
                                                     {isReturn ? <Receipt className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                                                 </div>
@@ -3386,7 +3385,7 @@ const Contracts = () => {
                                     <div className="w-full p-6 rounded-3xl bg-muted/30 border border-border/50 flex flex-col items-center gap-2 relative overflow-hidden group">
                                         <div className={cn(
                                             "absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity",
-                                            isReturn ? "text-purple-500" : "text-blue-500"
+                                            isReturn ? "text-sky-500" : "text-blue-500"
                                         )}>
                                             <DollarSign className="w-16 h-16 -mr-4 -mt-4 rotate-12" />
                                         </div>
@@ -3464,7 +3463,7 @@ const Contracts = () => {
                                                     })()}
                                                     <TableRow className={cn(
                                                         "border-none h-12",
-                                                        isReturn ? "bg-purple-50" : "bg-blue-50"
+                                                        isReturn ? "bg-sky-50" : "bg-blue-50"
                                                     )}>
                                                         <TableCell className="text-xs font-black uppercase tracking-widest py-2">Total Settlement</TableCell>
                                                         <TableCell className="text-right text-sm font-black font-mono py-2">LKR {Number(Math.abs(total)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</TableCell>
@@ -3528,7 +3527,7 @@ const Contracts = () => {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <Share2 className="w-4 h-4 text-purple-500" /> Copy Link
+                                                        <Share2 className="w-4 h-4 text-sky-500" /> Copy Link
                                                     </>
                                                 )}
                                             </Button>
@@ -3617,8 +3616,8 @@ const Contracts = () => {
                                     <TableCell>
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
                                             ${contract.status === 'UPCOMING' ? 'bg-blue-100 text-blue-800' :
-                                                contract.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
-                                                    contract.status === 'RETURN' ? 'bg-purple-100 text-purple-800' :
+                                                contract.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                                                    contract.status === 'RETURN' ? 'bg-sky-100 text-sky-800' :
                                                         contract.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                             }`}>
                                             {contract.status}

@@ -280,11 +280,11 @@ const GeneralSettings = () => {
                                     />
                                 </div>
 
-                                <div className="p-6 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex gap-4 items-start shadow-sm">
-                                    <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                <div className="p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10 flex gap-4 items-start shadow-sm">
+                                    <ShieldAlert className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                                     <div className="space-y-1">
-                                        <p className="text-sm font-black uppercase tracking-widest text-amber-700/80 font-calibri-bold">Critical Advisory</p>
-                                        <p className="text-sm font-bold text-amber-700/60 leading-relaxed font-calibri">
+                                        <p className="text-sm font-black uppercase tracking-widest text-blue-700/80 font-calibri-bold">Critical Advisory</p>
+                                        <p className="text-sm font-bold text-blue-700/60 leading-relaxed font-calibri">
                                             Disabling the portal redirects all traffic to the legacy maintenance screen. Administrative access remains unaffected via direct VPC routes.
                                         </p>
                                     </div>
@@ -296,8 +296,8 @@ const GeneralSettings = () => {
                         <Card className="bg-card border-border shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden transition-all duration-300">
                             <CardHeader className="p-10 pb-4">
                                 <div className="flex items-center gap-5 mb-2">
-                                    <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/10">
-                                        <Coins className="w-8 h-8 text-amber-500" />
+                                    <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/10">
+                                        <Coins className="w-8 h-8 text-blue-500" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-3xl font-black uppercase tracking-tighter text-foreground font-calibri-bold">Loyalty System</CardTitle>
@@ -366,8 +366,8 @@ const GeneralSettings = () => {
                         <Card className="bg-card border-border shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden transition-all duration-300">
                             <CardHeader className="p-10 pb-4">
                                 <div className="flex items-center gap-5 mb-2">
-                                    <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/10">
-                                        <ShieldAlert className="w-8 h-8 text-amber-500" />
+                                    <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/10">
+                                        <ShieldAlert className="w-8 h-8 text-blue-500" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-3xl font-black uppercase tracking-tighter text-foreground font-calibri-bold">Staging Alert</CardTitle>

@@ -1064,7 +1064,7 @@ export default function Quotations() {
                                                     </span>
                                                     {status === 'tentative' && (
                                                         <span
-                                                            className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                                                            className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                                                             title={
                                                                 conflict?.contractNo
                                                                     ? `Tentatively reserved by ${conflict.contractNo} (advance not paid)`
@@ -1082,7 +1082,7 @@ export default function Quotations() {
                             </Select>
                             <p className="text-[11px] text-muted-foreground">
                                 Vehicles with paid advance for this date range are hidden. 
-                                <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ml-1">advance not paid</span> tags indicate pending bookings.
+                                <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ml-1">advance not paid</span> tags indicate pending bookings.
                             </p>
                         </div>
                     </div>

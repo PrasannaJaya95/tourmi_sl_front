@@ -677,8 +677,8 @@ const CustomerWizard = ({
 
                                 <div className="space-y-3 pt-4 border-t border-border">
                                     <div className="flex items-center gap-2.5">
-                                        <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                                        <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                            <AlertCircle className="w-4 h-4 text-blue-500" />
                                         </div>
                                         <div>
                                             <h4 className="text-sm font-black tracking-tight text-foreground">Loyalty Program</h4>

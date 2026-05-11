@@ -134,9 +134,9 @@ const DeleteAllDataWizard = ({ open, onOpenChange }) => {
                                         Users with <strong>ADMIN</strong> or <strong>SUPER_ADMIN</strong> roles are NOT deleted. Your account is safe.
                                     </p>
                                 </div>
-                                <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 group transition-all">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 font-calibri-bold">System Settings</p>
-                                    <p className="text-xs font-bold text-amber-700/70 font-calibri mt-1">
+                                <div className="p-5 rounded-2xl bg-blue-500/5 border border-blue-500/10 group transition-all">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 font-calibri-bold">System Settings</p>
+                                    <p className="text-xs font-bold text-blue-700/70 font-calibri mt-1">
                                         Branding, maintenance settings, and payment gateway configurations are preserved.
                                     </p>
                                 </div>

@@ -83,11 +83,11 @@ const YearScheduler = ({ date, events, onSelectEvent, onNavigate, vehicles = [] 
                     <button onClick={() => handleYearChange(1)} className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full text-slate-600 dark:text-white transition-colors"><ChevronRight className="w-5 h-5" /></button>
                 </div>
                 <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest">
-                    <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full text-violet-600 dark:text-violet-400">
-                        <div className="w-2 h-2 rounded-full bg-violet-500"></div> Upcoming
+                    <div className="flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-600 dark:text-indigo-400">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div> Upcoming
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-yellow-600 dark:text-yellow-400">
-                        <div className="w-2 h-2 rounded-full bg-yellow-500"></div> In Progress
+                    <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-600 dark:text-blue-400">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div> In Progress
                     </div>
                 </div>
             </div>
@@ -201,8 +201,8 @@ const VehicleRow = React.memo(({ veh, days, eventLookup, onSelectEvent, isEvenRo
                 let bgClass = "";
                 let marginClass = "mx-0.5 rounded-sm";
 
-                if (event.status === 'IN_PROGRESS') bgClass = "bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.35)] z-0";
-                else if (event.status === 'UPCOMING') bgClass = "bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.35)] z-0";
+                if (event.status === 'IN_PROGRESS') bgClass = "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.35)] z-0";
+                else if (event.status === 'UPCOMING') bgClass = "bg-indigo-500 shadow-[0_0_10px_rgba(79,70,229,0.35)] z-0";
 
                 if (!isStart && !isEnd) {
                     marginClass = "mx-0 rounded-none";

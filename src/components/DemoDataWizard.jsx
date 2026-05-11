@@ -101,8 +101,8 @@ const DemoDataWizard = ({ open, onOpenChange }) => {
                     {step === 2 && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <DialogHeader>
-                                <div className="p-4 w-fit bg-amber-500/10 rounded-2xl border border-amber-500/10 mb-4">
-                                    <AlertTriangle className="w-8 h-8 text-amber-500" />
+                                <div className="p-4 w-fit bg-blue-500/10 rounded-2xl border border-blue-500/10 mb-4">
+                                    <AlertTriangle className="w-8 h-8 text-blue-500" />
                                 </div>
                                 <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-foreground font-calibri-bold">
                                     Final Authorization
@@ -112,7 +112,7 @@ const DemoDataWizard = ({ open, onOpenChange }) => {
                                 </DialogDescription>
                             </DialogHeader>
 
-                            <div className="bg-amber-500/5 border border-amber-500/10 p-6 rounded-2xl mt-6">
+                            <div className="bg-blue-500/5 border border-blue-500/10 p-6 rounded-2xl mt-6">
                                 <ul className="space-y-3">
                                     {[
                                         'New records will be appended to existing data.',
@@ -121,8 +121,8 @@ const DemoDataWizard = ({ open, onOpenChange }) => {
                                         'Operation cannot be automatically rolled back.'
                                     ].map((text, i) => (
                                         <li key={i} className="flex gap-3 items-start">
-                                            <div className="w-1 h-1 rounded-full bg-amber-500 mt-2 shrink-0" />
-                                            <p className="text-xs font-bold text-amber-700/80 font-calibri">{text}</p>
+                                            <div className="w-1 h-1 rounded-full bg-blue-500 mt-2 shrink-0" />
+                                            <p className="text-xs font-bold text-blue-700/80 font-calibri">{text}</p>
                                         </li>
                                     ))}
                                 </ul>

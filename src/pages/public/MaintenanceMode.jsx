@@ -6,8 +6,8 @@ const MaintenanceMode = ({ heading, message, allowLogin }) => {
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 p-4">
             <div className="relative">
-                <div className="absolute -inset-4 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
-                <ShieldAlert className="w-24 h-24 text-amber-500 relative z-10" />
+                <div className="absolute -inset-4 bg-blue-500/20 rounded-full blur-xl animate-pulse"></div>
+                <ShieldAlert className="w-24 h-24 text-blue-500 relative z-10" />
             </div>
             <h1 className="mt-8 text-4xl font-bold tracking-tight text-center">
                 {heading || 'System Under Maintenance'}

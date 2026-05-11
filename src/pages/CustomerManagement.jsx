@@ -545,7 +545,7 @@ const CustomerManagement = () => {
                                             </span>
                                         </TableCell>
                                         <TableCell className="py-6">
-                                            <div className="flex items-center gap-2 text-amber-500 font-black">
+                                            <div className="flex items-center gap-2 text-blue-500 font-black">
                                                 <Coins className="w-4 h-4" />
                                                 {(customer.loyaltyPoints || 0).toLocaleString()}
                                             </div>
@@ -553,7 +553,7 @@ const CustomerManagement = () => {
                                         <TableCell className="py-6">
                                             <span className={cn("px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border shadow-sm",
                                                 customer.status === 'CONFIRMED' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                                                    customer.status === 'PENDING_APPROVAL' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                                    customer.status === 'PENDING_APPROVAL' ? "bg-blue-50 text-blue-600 border-blue-100" :
                                                         customer.status === 'ARCHIVED' ? "bg-slate-100 text-slate-600 border-slate-200" :
                                                         "bg-secondary text-muted-foreground border-border"
                                             )}>
