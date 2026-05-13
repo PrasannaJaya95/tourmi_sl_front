@@ -15,7 +15,7 @@ const api = axios.create({
     // 90s timeout — handles large image uploads on slower connections
     timeout: 90000,
     // Tell the server we accept compressed responses
-    headers: { 'Accept-Encoding': 'gzip, deflate, br' },
+    headers: { 'Accept': 'application/json' },
 });
 
 export function getServerOrigin() {

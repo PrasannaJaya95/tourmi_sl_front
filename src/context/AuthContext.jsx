@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
                 return {
                     success: false,
                     message:
-                        'Cannot reach the API server. Start the backend (e.g. npm run dev in crusecabback) and ensure it runs on the same host/port as VITE_API_URL / port 5000.',
+                        'Cannot reach the API server. Please ensure the backend is running and the VITE_API_URL environment variable is correctly configured.',
                 };
             }
             if (!error.response) {
