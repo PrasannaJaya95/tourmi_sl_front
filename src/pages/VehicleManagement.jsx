@@ -152,7 +152,7 @@ const VehicleManagement = () => {
     const { user } = useAuth();
     const [vehicles, setVehicles] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [open, setOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [viewingImage, setViewingImage] = useState(null);
     const [paymentSchedules, setPaymentSchedules] = useState([]);
     const [newSchedule, setNewSchedule] = useState({
@@ -456,11 +456,11 @@ const VehicleManagement = () => {
             contractEndDate: vehicle.contractEndDate ? new Date(vehicle.contractEndDate) : undefined
         });
         fetchPaymentSchedules(vehicle.id);
-        setOpen(true);
+        setIsEditModalOpen(true);
     };
 
     const handleDialogChange = (isOpen) => {
-        setOpen(isOpen);
+        setIsEditModalOpen(isOpen);
         if (!isOpen) {
             setIsViewMode(false);
             setFormData({
@@ -789,7 +789,7 @@ const VehicleManagement = () => {
                         })}
                     </div>
                 )}
-                <Dialog open={open} onOpenChange={handleDialogChange}>
+                <Dialog open={isEditModalOpen} onOpenChange={handleDialogChange}>
                     <DialogTrigger asChild>
                         <Button className="bg-primary hover:bg-primary/95 text-primary-foreground font-black px-8 py-7 rounded-2xl shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 uppercase tracking-widest text-xs">
                             <Plus className="h-5 w-5" /> Add Vehicle
@@ -1422,14 +1422,6 @@ const VehicleManagement = () => {
                 <Pagination
                     pagination={pagination}
                     onPageChange={(p) => setPage(p)}
-                />
-
-                <VehicleDetailModal
-                    isOpen={isDetailModalOpen}
-                    onClose={() => setIsDetailModalOpen(false)}
-                    car={selectedDetailVehicle}
-                    actionLabel="Edit Details"
-                    onActionClick={(car) => handleEdit(car, false)}
                 />
             </div>
 
