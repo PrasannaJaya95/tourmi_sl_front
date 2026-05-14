@@ -49,6 +49,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import VehicleDetailModal from '../components/VehicleDetailModal';
 
 const ImageViewDialog = ({ src, open, onOpenChange }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -173,6 +174,8 @@ const VehicleManagement = () => {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 20 });
     const [isViewMode, setIsViewMode] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedDetailVehicle, setSelectedDetailVehicle] = useState(null);
     const [savingStatus, setSavingStatus] = useState(''); // New state for progress feedback
 
     const [brands, setBrands] = useState([]);
@@ -409,7 +412,13 @@ const VehicleManagement = () => {
 
 
     const handleEdit = (vehicle, viewOnly = false) => {
-        setIsViewMode(viewOnly);
+        if (viewOnly) {
+            setSelectedDetailVehicle(vehicle);
+            setIsDetailModalOpen(true);
+            return;
+        }
+
+        setIsViewMode(false);
         setEditingVehicle(vehicle);
         setFormData({
             brandId: vehicle.vehicleModel?.brandId ? vehicle.vehicleModel.brandId.toString() : '',
@@ -785,104 +794,7 @@ const VehicleManagement = () => {
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-card border-border rounded-[2.5rem] shadow-2xl p-0 custom-scrollbar text-foreground">
-                        {isViewMode ? (
-                            <div className="animate-in fade-in zoom-in-95 duration-300">
-                                <DialogHeader className="p-10 pb-0 flex flex-row items-center justify-between">
-                                    <div>
-                                        <DialogTitle className="text-3xl font-black tracking-tight text-foreground">
-                                            Vehicle Summary
-                                        </DialogTitle>
-                                        <DialogDescription className="font-medium text-muted-foreground mt-2">
-                                            Quick overview of {formData.licensePlate} details.
-                                        </DialogDescription>
-                                    </div>
-                                </DialogHeader>
-                                <div className="px-10 py-8 space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        <div className="space-y-6">
-                                            <div className="relative group rounded-[2rem] overflow-hidden border border-border shadow-xl bg-secondary/30 aspect-video">
-                                                <img
-                                                    src={resolveServerUrl(formData.mainImage) || 'https://images.unsplash.com/photo-1542282088-fe8426682b8f?auto=format&fit=crop&q=80&w=400'}
-                                                    alt="Main Vehicle"
-                                                    className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-700"
-                                                />
-                                                <div className="absolute top-4 left-4">
-                                                    {getStatusBadge(formData.status)}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {[formData.extraImage1, formData.extraImage2, formData.extraImage3, formData.extraImage4].filter(Boolean).map((img, i) => (
-                                                    <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary/50">
-                                                        <img src={resolveServerUrl(img)} alt={`Extra ${i + 1}`} className="w-full h-full object-cover" />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            <div className="space-y-1">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-primary/60">Model & Identity</h4>
-                                                <div className="flex items-baseline gap-2">
-                                                    <p className="text-3xl font-black text-foreground">{brands.find(b => b.id.toString() === formData.brandId)?.name || '—'}</p>
-                                                    <p className="text-xl font-bold text-muted-foreground">{models.find(m => m.id.toString() === formData.modelId)?.name || '—'}</p>
-                                                </div>
-                                                <div className="mt-2 inline-block px-3 py-1 bg-secondary rounded-lg border border-border font-black text-sm tracking-tight">
-                                                    {formData.licensePlate}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="p-4 rounded-2xl bg-secondary/30 border border-border">
-                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Transmission</p>
-                                                    <p className="font-bold text-sm">{formData.transmission}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-secondary/30 border border-border">
-                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Fuel Type</p>
-                                                    <p className="font-bold text-sm">{formData.fuelType}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-secondary/30 border border-border">
-                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Year</p>
-                                                    <p className="font-bold text-sm">{formData.year}</p>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-secondary/30 border border-border">
-                                                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Odometer</p>
-                                                    <p className="font-bold text-sm">{formData.lastOdometer?.toLocaleString()} KM</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Pricing Summary</h4>
-                                                <div className="space-y-3">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-xs font-medium text-muted-foreground">Local/Corporate Daily</span>
-                                                        <span className="font-black text-foreground text-lg">Rs. {Number(formData.dailyRentalRate).toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-xs font-medium text-muted-foreground">Foreign Daily</span>
-                                                        <span className="font-black text-blue-500">Rs. {Number(formData.foreignDailyRentalRate).toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center border-t border-primary/10 pt-3">
-                                                        <span className="text-xs font-medium text-muted-foreground">Booking Fee</span>
-                                                        <span className="font-bold text-foreground">Rs. {Number(formData.bookingFee).toLocaleString()}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <DialogFooter className="pt-6 border-t border-border">
-                                        <Button 
-                                            type="button" 
-                                            onClick={() => setIsViewMode(false)}
-                                            className="bg-primary hover:bg-primary/90 text-white font-black px-10 py-6 rounded-2xl transition-all shadow-lg shadow-primary/20"
-                                        >
-                                            Edit Details
-                                        </Button>
-                                    </DialogFooter>
-                                </div>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleSubmit}>
+                        <form onSubmit={handleSubmit}>
                                 <DialogHeader className="p-10 pb-0 flex flex-row items-center justify-between">
                                     <div>
                                         <DialogTitle className="text-3xl font-black tracking-tight text-foreground">
@@ -1299,7 +1211,6 @@ const VehicleManagement = () => {
                                 </Button>
                             </DialogFooter>
                         </form>
-                    )}
                     </DialogContent>
                 </Dialog>
             </div>
@@ -1509,6 +1420,14 @@ const VehicleManagement = () => {
                 <Pagination
                     pagination={pagination}
                     onPageChange={(p) => setPage(p)}
+                />
+
+                <VehicleDetailModal
+                    isOpen={isDetailModalOpen}
+                    onClose={() => setIsDetailModalOpen(false)}
+                    car={selectedDetailVehicle}
+                    actionLabel="Edit Details"
+                    onActionClick={(car) => handleEdit(car, false)}
                 />
             </div>
 

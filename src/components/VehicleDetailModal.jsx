@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Settings, Fuel, Calendar, Map, Shield, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const VehicleDetailModal = ({ car, isOpen, onClose, onBookClick }) => {
+const VehicleDetailModal = ({ car, isOpen, onClose, onBookClick, onActionClick, actionLabel }) => {
     if (!car) return null;
 
     const isReal = !!car.vehicleModel;
@@ -22,6 +22,15 @@ const VehicleDetailModal = ({ car, isOpen, onClose, onBookClick }) => {
     const transmission = isReal ? (car.transmission || 'Auto') : 'Auto';
     const fuelType = isReal ? (car.fuelType || 'Petrol') : (carName.includes('Tesla') ? 'Electric' : 'Petrol');
     const seats = isReal ? (car.seatingCapacity || '5') : '5';
+
+    const handleButtonClick = () => {
+        onClose();
+        if (onActionClick) {
+            onActionClick(car);
+        } else if (onBookClick) {
+            onBookClick(car);
+        }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -120,13 +129,10 @@ const VehicleDetailModal = ({ car, isOpen, onClose, onBookClick }) => {
                     </div>
 
                     <button
-                        onClick={() => {
-                            onClose();
-                            onBookClick(car);
-                        }}
+                        onClick={handleButtonClick}
                         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-5 rounded-2xl font-black transition-all shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 uppercase tracking-[0.2em] text-xs"
                     >
-                        Secure Reservation
+                        {actionLabel || "Secure Reservation"}
                     </button>
 
                 </div>
