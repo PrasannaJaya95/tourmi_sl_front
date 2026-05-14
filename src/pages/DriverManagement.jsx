@@ -228,9 +228,7 @@ const DriverManagement = () => {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-
-                    // Max dimension 1200px
-                    const MAX_SIZE = 1200;
+                    const MAX_SIZE = 1280;
                     if (width > height) {
                         if (width > MAX_SIZE) {
                             height *= MAX_SIZE / width;
@@ -242,14 +240,17 @@ const DriverManagement = () => {
                             height = MAX_SIZE;
                         }
                     }
-
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Compress to 70% quality
-                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    canvas.toBlob((blob) => {
+                        const compressedFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    }, 'image/jpeg', 0.7);
                 };
             };
         });
@@ -304,7 +305,13 @@ const DriverManagement = () => {
 
             for (const { key, target } of imageFields) {
                 if (formData[key] instanceof File) {
-                    processedData[target] = await compressImage(formData[key]);
+                    const optimizedFile = await compressImage(formData[key]);
+                    const uploadFormData = new FormData();
+                    uploadFormData.append('file', optimizedFile);
+                    const res = await api.post('/upload', uploadFormData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    processedData[target] = res.data.url;
                 } else if (typeof formData[key] === 'string') {
                     processedData[target] = formData[key];
                 }

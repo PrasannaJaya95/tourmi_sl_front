@@ -38,7 +38,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Store, Trash2, Pencil, Check, ChevronsUpDown, X, Search, Filter, Layers, UserPlus, Phone, MapPin, CreditCard, FileText, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import ImageUploadPreview from '../components/ImageUploadPreview';
-import { cn } from "@/lib/utils";
+import { cn, compressImage } from "@/lib/utils";
 
 const VendorManagement = () => {
     const [vendors, setVendors] = useState([]);
@@ -158,7 +158,8 @@ const VendorManagement = () => {
             const imageFields = ['nicFront', 'nicBack', 'utilityBill', 'attachment1', 'attachment2', 'photo'];
             for (const field of imageFields) {
                 if (formData[field] instanceof File) {
-                    processedData[`${field}Url`] = await convertToBase64(formData[field]);
+                    const compressed = await compressImage(formData[field]);
+                    processedData[`${field}Url`] = await convertToBase64(compressed);
                 } else if (typeof formData[field] === 'string') {
                     processedData[`${field}Url`] = formData[field];
                 }

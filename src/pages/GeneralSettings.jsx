@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Globe, ShieldAlert, Save, RefreshCw, Radio, CreditCard, Settings2, Wallet, Trash2, Coins, Database, Palette, ImageIcon, Flame, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from "@/lib/utils";
+import { cn, compressImage } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ImageUploadPreview from '@/components/ImageUploadPreview';
@@ -481,9 +481,18 @@ const GeneralSettings = () => {
                                             onChange={async (e) => {
                                                 const file = e.target.files[0];
                                                 if (file) {
-                                                    const reader = new FileReader();
-                                                    reader.onloadend = () => setWebsiteLogo(reader.result);
-                                                    reader.readAsDataURL(file);
+                                                    const compressed = await compressImage(file);
+                                                    const formData = new FormData();
+                                                    formData.append('file', compressed);
+                                                    try {
+                                                        const res = await api.post('/upload', formData, {
+                                                            headers: { 'Content-Type': 'multipart/form-data' }
+                                                        });
+                                                        setWebsiteLogo(res.data.url);
+                                                    } catch (err) {
+                                                        console.error("Logo upload failed", err);
+                                                        alert("Failed to upload logo to cloud.");
+                                                    }
                                                 }
                                             }}
                                             onRemove={() => setWebsiteLogo(null)}

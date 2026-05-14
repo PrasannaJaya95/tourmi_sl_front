@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Plus, User, Trash2, Pencil, FileText, Upload, Save, Send, Building2, Globe, CheckCircle, Search, Filter, Coins, Archive, Undo2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Pagination from '../components/Pagination';
-import { cn } from '@/lib/utils';
+import { cn, compressImage } from '@/lib/utils';
 import { Card } from "@/components/ui/card";
 import CustomerWizard from '@/components/CustomerWizard';
 import SuccessWizard from '@/components/SuccessWizard';
@@ -231,8 +231,9 @@ const CustomerManagement = () => {
             const uploadedUrls = {};
             for (const [key, file] of Object.entries(wizardFiles)) {
                 if (file instanceof File) {
+                    const compressed = await compressImage(file);
                     const formData = new FormData();
-                    formData.append('file', file);
+                    formData.append('file', compressed);
                     try {
                         const uploadRes = await api.post('/upload', formData);
                         // The server returns a relative path like /uploads/filename.ext
