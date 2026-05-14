@@ -1298,7 +1298,8 @@ const VehicleManagement = () => {
                                     {savingStatus ? 'Processing...' : (editingVehicle ? 'Update Fleet member' : 'Save New Vehicle')}
                                 </Button>
                             </DialogFooter>
-                        )}
+                        </form>
+                    )}
                     </DialogContent>
                 </Dialog>
             </div>
