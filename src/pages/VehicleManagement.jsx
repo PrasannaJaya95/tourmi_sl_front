@@ -1497,7 +1497,20 @@ const VehicleManagement = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div >
+            <VehicleDetailModal
+                car={selectedDetailVehicle}
+                isOpen={isDetailModalOpen}
+                onClose={() => {
+                    setIsDetailModalOpen(false);
+                    setSelectedDetailVehicle(null);
+                }}
+                actionLabel="Edit Details"
+                onActionClick={(vehicle) => {
+                    setIsDetailModalOpen(false);
+                    handleEdit(vehicle);
+                }}
+            />
+        </div>
     );
 };
 
