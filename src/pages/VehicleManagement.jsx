@@ -706,7 +706,7 @@ const VehicleManagement = () => {
             }
 
             setSavingStatus('');
-            setOpen(false);
+            handleDialogChange(false);
             if (!editingVehicle) {
                 setShowSuccessDialog(true);
             }
