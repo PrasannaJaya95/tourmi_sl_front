@@ -215,6 +215,44 @@ const DriverManagement = () => {
         });
     };
 
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Max dimension 1200px
+                    const MAX_SIZE = 1200;
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Compress to 70% quality
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+            };
+        });
+    };
+
     const convertToBase64 = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -255,7 +293,7 @@ const DriverManagement = () => {
             const imageFields = ['driverImage', 'licenseFront', 'licenseBack', 'nicFront', 'nicBack', 'optionalDoc1', 'optionalDoc2'];
             for (const field of imageFields) {
                 if (formData[field] instanceof File) {
-                    processedData[`${field}Url`] = await convertToBase64(formData[field]);
+                    processedData[`${field}Url`] = await compressImage(formData[field]);
                 } else if (typeof formData[field] === 'string') {
                     processedData[`${field}Url`] = formData[field];
                 }
