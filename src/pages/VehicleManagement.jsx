@@ -412,7 +412,9 @@ const VehicleManagement = () => {
 
 
     const handleEdit = (vehicle, viewOnly = false) => {
+        console.log("[DEBUG] handleEdit called with viewOnly:", viewOnly);
         if (viewOnly) {
+            console.log("[DEBUG] Opening Summary Wizard for:", vehicle.licensePlate);
             setSelectedDetailVehicle(vehicle);
             setIsDetailModalOpen(true);
             return;
