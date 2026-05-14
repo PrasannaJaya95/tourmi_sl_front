@@ -31,7 +31,13 @@ export function resolveServerUrl(urlOrPath, options = {}) {
     if (!urlOrPath || typeof urlOrPath !== 'string') return null;
     
     let url = urlOrPath;
-    if (!urlOrPath.startsWith('data:') && !urlOrPath.startsWith('http://') && !urlOrPath.startsWith('https://')) {
+    
+    // If it's already a Base64 data URL, return it immediately
+    if (urlOrPath.startsWith('data:')) {
+        return urlOrPath;
+    }
+
+    if (!urlOrPath.startsWith('http://') && !urlOrPath.startsWith('https://')) {
         const origin = getServerOrigin();
         const path = urlOrPath.startsWith('/') ? urlOrPath : `/${urlOrPath}`;
         url = `${origin}${path}`;
