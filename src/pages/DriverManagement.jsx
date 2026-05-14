@@ -142,6 +142,7 @@ const DriverManagement = () => {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 20 });
     const [viewingImage, setViewingImage] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedDriver, setSelectedDriver] = useState(null);
@@ -322,11 +323,23 @@ const DriverManagement = () => {
     };
 
     const handleDelete = async (id) => {
+        setDeletingId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingId) return;
         try {
-            await api.delete(`/drivers/${id}`);
+            await api.delete(`/drivers/${deletingId}`);
+            setDeletingId(null);
             fetchDrivers();
         } catch (error) {
             console.error("Error deleting driver:", error);
+            setAlertInfo({
+                open: true,
+                title: 'Operation Blocked',
+                message: error.response?.data?.message || "Failed to delete driver. Ensure they have no active contracts."
+            });
+            setDeletingId(null);
         }
     };
 
@@ -680,6 +693,24 @@ const DriverManagement = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
+                <AlertDialogContent className="bg-card border-border rounded-[2.5rem] shadow-2xl p-10 flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+                        <Trash2 className="h-10 w-10 text-destructive" />
+                    </div>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-2xl font-black tracking-tight mb-2">Decommission Driver?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground font-medium">
+                            This action is permanent and will remove all credentials from the registry.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-8 gap-4">
+                        <Button variant="ghost" onClick={() => setDeletingId(null)} className="px-8 font-black uppercase tracking-widest text-[10px] rounded-xl h-14 border border-border hover:bg-secondary">Cancel</Button>
+                        <Button onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-white font-black px-10 py-6 rounded-xl transition-all shadow-lg shadow-destructive/20 h-14">Execute Delete</Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog open={alertInfo.open} onOpenChange={(open) => setAlertInfo(prev => ({ ...prev, open }))}>
                 <AlertDialogContent className="bg-card border-border rounded-[2.5rem] shadow-2xl p-10 flex flex-col items-center text-center">
