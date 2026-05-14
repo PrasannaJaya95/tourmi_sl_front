@@ -292,14 +292,23 @@ const DriverManagement = () => {
                 expiryDate: formData.expiryDate
             };
 
-            const imageFields = ['driverImage', 'licenseFront', 'licenseBack', 'nicFront', 'nicBack', 'optionalDoc1', 'optionalDoc2'];
-            for (const field of imageFields) {
-                if (formData[field] instanceof File) {
-                    processedData[`${field}Url`] = await compressImage(formData[field]);
-                } else if (typeof formData[field] === 'string') {
-                    processedData[`${field}Url`] = formData[field];
+            const imageFields = [
+                { key: 'driverImage', target: 'driverImageUrl' },
+                { key: 'licenseFront', target: 'licenseFrontUrl' },
+                { key: 'licenseBack', target: 'licenseBackUrl' },
+                { key: 'nicFront', target: 'nicFrontUrl' },
+                { key: 'nicBack', target: 'nicBackUrl' },
+                { key: 'optionalDoc1', target: 'optionalDoc1Url' },
+                { key: 'optionalDoc2', target: 'optionalDoc2Url' }
+            ];
+
+            for (const { key, target } of imageFields) {
+                if (formData[key] instanceof File) {
+                    processedData[target] = await compressImage(formData[key]);
+                } else if (typeof formData[key] === 'string') {
+                    processedData[target] = formData[key];
                 }
-                delete processedData[field];
+                if (key !== target) delete processedData[key];
             }
             if (!formData.password) delete processedData.password;
 
