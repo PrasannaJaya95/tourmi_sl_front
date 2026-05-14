@@ -3667,7 +3667,7 @@ const Contracts = () => {
                                     </TableCell>
                                 </TableRow>
                             ))
-                        }
+                        )}
                     </TableBody>
                 </Table>
                 
