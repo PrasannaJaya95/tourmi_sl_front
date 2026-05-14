@@ -3581,7 +3581,16 @@ const Contracts = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading ? <TableRow><TableCell colSpan={9}>Loading...</TableCell></TableRow> :
+                        {loading ? (
+                            <TableRow>
+                                <TableCell colSpan={9} className="h-32 text-center py-10">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                        <p className="font-black uppercase tracking-widest text-[10px] text-muted-foreground animate-pulse">Loading Contracts...</p>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : (
                             filteredContracts.map(contract => (
                                 <TableRow
                                     key={contract.id}
