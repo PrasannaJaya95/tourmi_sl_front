@@ -42,6 +42,7 @@ import Pagination from '../components/Pagination';
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { formatDate } from '@/lib/dates';
+import { resolveServerUrl } from '@/lib/api';
 import DriverDetailModal from '../components/DriverDetailModal';
 
 const ImageUploadPreview = ({ id, label, file, onChange, onView, className }) => {
@@ -349,7 +350,7 @@ const DriverManagement = () => {
                     <div className="flex items-center gap-4">
                         <div className="h-14 w-14 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden border border-border group-hover:border-primary/20 transition-all shadow-sm">
                             {driver.driverDetails?.driverImageUrl ? (
-                                <img src={driver.driverDetails.driverImageUrl} alt={driver.name} className="h-full w-full object-cover group-hover:scale-110 transition-all duration-500" />
+                                <img src={resolveServerUrl(driver.driverDetails.driverImageUrl)} alt={driver.name} className="h-full w-full object-cover group-hover:scale-110 transition-all duration-500" />
                             ) : (
                                 <User className="h-6 w-6 text-muted-foreground" />
                             )}
