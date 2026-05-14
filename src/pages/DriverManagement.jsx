@@ -42,6 +42,7 @@ import Pagination from '../components/Pagination';
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { formatDate } from '@/lib/dates';
+import DriverDetailModal from '../components/DriverDetailModal';
 
 const ImageUploadPreview = ({ id, label, file, onChange, onView, className }) => {
     const [preview, setPreview] = useState(null);
@@ -140,6 +141,9 @@ const DriverManagement = () => {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 20 });
     const [viewingImage, setViewingImage] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedDriver, setSelectedDriver] = useState(null);
 
     const fetchDrivers = async () => {
         try {
@@ -222,6 +226,7 @@ const DriverManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
         try {
             const required = ['name', 'email', 'phoneNumber', 'licenseNumber', 'expiryDate', 'address', 'nic'];
             const missing = required.filter(field => !formData[field]);
@@ -272,6 +277,8 @@ const DriverManagement = () => {
                 title: 'Compliance Error',
                 message: "Failed to update driver records. " + (error.response?.data?.message || '')
             });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -335,6 +342,17 @@ const DriverManagement = () => {
                 </TableCell>
                 <TableCell className="text-right py-6 pr-8">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                setSelectedDriver(driver);
+                                setIsDetailModalOpen(true);
+                            }}
+                            className="h-9 w-9 bg-primary/5 hover:bg-primary text-primary hover:text-white rounded-xl transition-all"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
                         <Button
                             variant="ghost"
                             size="icon"
@@ -508,8 +526,8 @@ const DriverManagement = () => {
                             </div>
                             <DialogFooter className="sm:justify-between px-10 pb-10">
                                 <p className="text-sm text-muted-foreground self-center font-medium italic opacity-50">* Mandatory Compliance Required</p>
-                                <Button type="submit" className="bg-primary hover:bg-primary/95 text-primary-foreground font-black px-10 h-14 rounded-2xl transition-all shadow-xl shadow-primary/20 scale-100 hover:scale-[1.02] active:scale-95">
-                                    {editingId ? 'Validate Updates' : 'Commit Registry'}
+                                <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/95 text-primary-foreground font-black px-10 h-14 rounded-2xl transition-all shadow-xl shadow-primary/20 scale-100 hover:scale-[1.02] active:scale-95 disabled:opacity-70">
+                                    {isSubmitting ? 'Synchronizing...' : (editingId ? 'Validate Updates' : 'Commit Registry')}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -640,6 +658,13 @@ const DriverManagement = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <DriverDetailModal
+                driver={selectedDriver}
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                onEditClick={handleEdit}
+            />
         </div>
     );
 };
