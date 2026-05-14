@@ -39,18 +39,20 @@ export function resolveServerUrl(urlOrPath, options = {}) {
 
     // Cloudinary Optimization
     if (url.includes('cloudinary.com')) {
-        // Detect 'upload/' and insert transformations
-        const parts = url.split('/upload/');
-        if (parts.length === 2) {
-            const transformations = [];
-            transformations.push('q_auto'); // Automatic quality
-            transformations.push('f_auto'); // Automatic format (WebP/AVIF)
-            
-            if (options.width) transformations.push(`w_${options.width}`);
-            if (options.height) transformations.push(`h_${options.height}`);
-            if (options.crop) transformations.push(`c_${options.crop}`);
+        // Only attempt transformation if it's a standard upload URL
+        if (url.includes('/upload/')) {
+            const parts = url.split('/upload/');
+            if (parts.length === 2) {
+                const transformations = [];
+                transformations.push('q_auto'); // Automatic quality
+                transformations.push('f_auto'); // Automatic format
+                
+                if (options.width) transformations.push(`w_${options.width}`);
+                if (options.height) transformations.push(`h_${options.height}`);
+                if (options.crop) transformations.push(`c_${options.crop}`);
 
-            return `${parts[0]}/upload/${transformations.join(',')}/${parts[1]}`;
+                return `${parts[0]}/upload/${transformations.join(',')}/${parts[1]}`;
+            }
         }
     }
 
