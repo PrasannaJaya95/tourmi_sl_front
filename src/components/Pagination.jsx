@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 const Pagination = ({ pagination, onPageChange }) => {
-    if (!pagination || pagination.totalPages <= 1) return null;
+    if (!pagination) return null;
 
     const { page, totalPages, total, limit } = pagination;
+    const hasMultiplePages = totalPages > 1;
 
     const renderPageNumbers = () => {
         const pages = [];
@@ -43,49 +44,51 @@ const Pagination = ({ pagination, onPageChange }) => {
                 Showing <span className="text-foreground">{(page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> records
             </div>
             
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
-                    onClick={() => onPageChange(1)}
-                    disabled={page === 1}
-                >
-                    <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
-                    onClick={() => onPageChange(page - 1)}
-                    disabled={page === 1}
-                >
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
+            {hasMultiplePages && (
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
+                        onClick={() => onPageChange(1)}
+                        disabled={page === 1}
+                    >
+                        <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
+                        onClick={() => onPageChange(page - 1)}
+                        disabled={page === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
 
-                <div className="flex items-center gap-2 px-2">
-                    {renderPageNumbers()}
+                    <div className="flex items-center gap-2 px-2">
+                        {renderPageNumbers()}
+                    </div>
+
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
+                        onClick={() => onPageChange(page + 1)}
+                        disabled={page === totalPages}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
+                        onClick={() => onPageChange(totalPages)}
+                        disabled={page === totalPages}
+                    >
+                        <ChevronsRight className="h-4 w-4" />
+                    </Button>
                 </div>
-
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
-                    onClick={() => onPageChange(page + 1)}
-                    disabled={page === totalPages}
-                >
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="w-9 h-9 rounded-xl bg-secondary/50 border-border hover:bg-secondary disabled:opacity-30 transition-all"
-                    onClick={() => onPageChange(totalPages)}
-                    disabled={page === totalPages}
-                >
-                    <ChevronsRight className="h-4 w-4" />
-                </Button>
-            </div>
+            )}
         </div>
     );
 };
