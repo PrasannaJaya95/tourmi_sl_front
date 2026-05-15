@@ -5,9 +5,9 @@ function computeDefaultApiBaseUrl() {
     // using localhost would point to the *client device*, not the server.
     // So default to the same hostname as the current page.
     if (typeof window !== 'undefined' && window.location?.hostname) {
-        return `http://${window.location.hostname}:5003/api`;
+        return `http://${window.location.hostname}:5004/api`;
     }
-    return 'http://localhost:5003/api';
+    return 'http://localhost:5004/api';
 }
 
 const api = axios.create({
@@ -23,7 +23,7 @@ export function getServerOrigin() {
         // baseURL includes "/api/", but we only need the origin for assets like "/uploads/..."
         return new URL(api.defaults.baseURL).origin;
     } catch {
-        return (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : 'http://localhost:5003';
+        return (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : 'http://localhost:5004';
     }
 }
 
