@@ -5,7 +5,13 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 const Pagination = ({ pagination, onPageChange }) => {
     if (!pagination) return null;
 
-    const { page, totalPages, total, limit } = pagination;
+    const { 
+        page = 1, 
+        totalPages = 1, 
+        total = 0, 
+        limit = 20 
+    } = pagination;
+
     const hasMultiplePages = totalPages > 1;
 
     const renderPageNumbers = () => {
@@ -41,7 +47,7 @@ const Pagination = ({ pagination, onPageChange }) => {
     return (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-6 bg-card/30 backdrop-blur-md border-t border-border mt-auto">
             <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                Showing <span className="text-foreground">{(page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> records
+                Showing <span className="text-foreground">{total === 0 ? 0 : (page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> records
             </div>
             
             {hasMultiplePages && (
