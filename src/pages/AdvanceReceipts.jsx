@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { formatDate, formatDateTime } from '@/lib/dates';
 import { Receipt, MessageCircle, Printer, FileText, Undo2, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
+import { printHtmlDocument } from '@/lib/printHtmlDocument';
 import Pagination from '../components/Pagination';
 import useDebounce from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
@@ -167,20 +168,20 @@ const AdvanceReceipts = () => {
         }
     };
 
-    const printReceipt = () => {
-        if (!iframeDoc) return;
-        const w = window.open('', '_blank', 'noopener,noreferrer');
-        if (!w) return;
-        w.document.write(iframeDoc);
-        w.document.close();
-        w.focus();
-        setTimeout(() => {
-            try {
-                w.print();
-            } catch {
-                /* ignore */
-            }
-        }, 300);
+    const printReceipt = async () => {
+        if (!selected?.id) return;
+        try {
+            await printHtmlDocument(async () => {
+                const res = await api.get(`/advance-receipts/${selected.id}/html`, {
+                    responseType: 'text',
+                    headers: { Accept: 'text/html' },
+                });
+                return typeof res.data === 'string' ? res.data : iframeDoc || '';
+            });
+        } catch (e) {
+            console.error(e);
+            alert(e.response?.data?.message || e.message || 'Could not print receipt.');
+        }
     };
 
     const sendWhatsApp = async () => {

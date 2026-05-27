@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
+import { printHtmlDocument } from '@/lib/printHtmlDocument';
 import { partitionInvoiceLinesForAdvance } from '@/lib/invoiceLineTable';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { formatDate, formatDateTime } from '@/lib/dates';
 import { Plus, Search, MapPin, Settings, Edit, Trash2, X, ExternalLink, Eye, DollarSign, ChevronLeft, ChevronRight, CheckCircle2, MessageCircle, Copy, Check, FileText, Receipt, Printer, Share2 } from 'lucide-react';
 import { normalizePhoneForWhatsApp, pickCustomerWhatsAppPhone, openWhatsAppWeb } from '@/lib/whatsappWeb';
@@ -166,6 +167,34 @@ const combineDateAndTime = (dateStr, timeStr) => {
 
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hhmm.h, hhmm.min, 0, 0);
 };
+
+const MS_PER_RENTAL_DAY = 24 * 60 * 60 * 1000;
+
+function computeRentalDayUnits(pickupDateYmd, pickupTimeHm, dropoffDateYmd, dropoffTimeHm) {
+    const start = combineDateAndTime(pickupDateYmd, pickupTimeHm);
+    const end = combineDateAndTime(dropoffDateYmd, dropoffTimeHm);
+    if (!start || !end) return 0;
+    const ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return 0;
+    return ms / MS_PER_RENTAL_DAY;
+}
+
+function formatRentalPeriod(pickupDateYmd, pickupTimeHm, dropoffDateYmd, dropoffTimeHm) {
+    const start = combineDateAndTime(pickupDateYmd, pickupTimeHm);
+    const end = combineDateAndTime(dropoffDateYmd, dropoffTimeHm);
+    if (!start || !end) return '—';
+    const ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return '—';
+    const totalMinutes = Math.floor(ms / 60000);
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+    const parts = [];
+    if (days) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+    if (hours) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+    if (minutes) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+    return parts.length ? parts.join(', ') : 'Less than 1 minute';
+}
 
 const Contracts = () => {
     const [contracts, setContracts] = useState([]);
@@ -571,19 +600,6 @@ const Contracts = () => {
             fetchCities(formData.districtId);
         }
     }, [formData.districtId]);
-
-    // Mirror drop-off time to pick-up time whenever the contract is editable
-    // (UPCOMING / IN_PROGRESS). Once the contract enters RETURN/COMPLETED the
-    // time fields are locked, so we won't ever overwrite a real return time.
-    useEffect(() => {
-        if (
-            formData.pickupTime
-            && ['UPCOMING', 'IN_PROGRESS'].includes(formData.status)
-            && formData.dropoffTime !== formData.pickupTime
-        ) {
-            setFormData(prev => ({ ...prev, dropoffTime: prev.pickupTime }));
-        }
-    }, [formData.pickupTime, formData.status]);
 
     const fetchContracts = async () => {
         try {
@@ -1026,7 +1042,7 @@ const Contracts = () => {
                 params: { contractId, limit: 50 },
             });
             const rows = Array.isArray(data?.data) ? data.data : [];
-            const open = rows.find((r) => r?.ledgerPostedAt && !r?.reversedAt) || null;
+            const open = rows.find((r) => !r?.reversedAt) || null;
             setActiveAdvanceReceipt(open);
         } catch (error) {
             console.error('Failed to fetch advance receipts for contract:', error);
@@ -1173,14 +1189,39 @@ const Contracts = () => {
         }
     };
 
+    const printAdvanceReceipt = async (receipt = currentSavedReceipt) => {
+        if (!receipt?.id) {
+            alert('No advance receipt found to print.');
+            return;
+        }
+        try {
+            await printHtmlDocument(async () => {
+                const res = await api.get(`/advance-receipts/${receipt.id}/html`, {
+                    responseType: 'text',
+                    headers: { Accept: 'text/html' },
+                });
+                return typeof res.data === 'string' ? res.data : '';
+            });
+        } catch (error) {
+            console.error('Failed to print advance receipt:', error);
+            const msg =
+                typeof error.response?.data === 'string'
+                    ? error.response.data
+                    : error.response?.data?.message;
+            alert(msg || error.message || 'Failed to open receipt for printing.');
+        }
+    };
+
     const openAgreement = async (mode = 'view') => {
         if (!agreement?.id) return;
         try {
             const { data } = await api.get(`/agreements/${agreement.id}/share-link`);
             if (data?.shareUrl) {
+                const baseUrl = data.shareUrl;
+                const separator = baseUrl.includes('?') ? '&' : '?';
                 const url = mode === 'download'
-                    ? `${data.shareUrl}&download=1`
-                    : data.shareUrl;
+                    ? `${baseUrl}${separator}download=1`
+                    : baseUrl;
                 window.open(url, '_blank', 'noopener,noreferrer');
             }
         } catch (error) {
@@ -1223,30 +1264,33 @@ const Contracts = () => {
     const activeVehicleId = getActiveVehicleId();
     const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-    // Auto-calculate Allocated KM and Daily Rate when vehicle/dates change
+    // Auto-calculate allocated KM from exact rental period (24h day-units × daily km limit)
     useEffect(() => {
-        // Only run if we have a vehicle and dates, and NOT in return mode (which shouldn't change allocated normally)
-        if (formData.vehicleId && formData.pickupDate && formData.dropoffDate) {
-            const vehicle = vehicles.find(v => v.id === formData.vehicleId);
-            if (vehicle) {
-                const startDate = new Date(formData.pickupDate);
-                const endDate = new Date(formData.dropoffDate);
-
-                if (!isNaN(startDate) && !isNaN(endDate)) {
-                    let days = differenceInCalendarDays(endDate, startDate);
-                    if (days < 1) days = 1;
-
-                    const dailyKm = Number(formData.dailyKmLimit) || 100;
-                    const calculatedAllocated = dailyKm * days;
-
-                    setFormData(prev => ({
-                        ...prev,
-                        allocatedKm: calculatedAllocated,
-                    }));
-                }
+        if (formData.vehicleId && formData.pickupDate && formData.dropoffDate && formData.pickupTime && formData.dropoffTime) {
+            const units = computeRentalDayUnits(
+                formData.pickupDate,
+                formData.pickupTime,
+                formData.dropoffDate,
+                formData.dropoffTime
+            );
+            if (units > 0) {
+                const dailyKm = Number(formData.dailyKmLimit) || 100;
+                const calculatedAllocated = Math.round(dailyKm * units);
+                setFormData((prev) => ({
+                    ...prev,
+                    allocatedKm: calculatedAllocated,
+                }));
             }
         }
-    }, [formData.vehicleId, formData.pickupDate, formData.dropoffDate, formData.dailyKmLimit, vehicles]);
+    }, [
+        formData.vehicleId,
+        formData.pickupDate,
+        formData.dropoffDate,
+        formData.pickupTime,
+        formData.dropoffTime,
+        formData.dailyKmLimit,
+        vehicles,
+    ]);
 
     // Auto-populate Start Odometer from Vehicle's Last Odometer
     useEffect(() => {
@@ -1274,6 +1318,26 @@ const Contracts = () => {
     /// that's strictly less than the vehicle's latest reading. The backend now
     /// rejects this on save, but we surface it inline so the user sees the
     /// problem before clicking Update.
+    const contractRentalDayUnits = useMemo(
+        () => computeRentalDayUnits(
+            formData.pickupDate,
+            formData.pickupTime,
+            formData.dropoffDate,
+            formData.dropoffTime
+        ),
+        [formData.pickupDate, formData.pickupTime, formData.dropoffDate, formData.dropoffTime]
+    );
+
+    const contractRentalPeriodLabel = useMemo(
+        () => formatRentalPeriod(
+            formData.pickupDate,
+            formData.pickupTime,
+            formData.dropoffDate,
+            formData.dropoffTime
+        ),
+        [formData.pickupDate, formData.pickupTime, formData.dropoffDate, formData.dropoffTime]
+    );
+
     const startOdoBelowLatest = useMemo(() => {
         const entered = Number(formData.startOdometer);
         if (!Number.isFinite(entered)) return false;
@@ -1491,14 +1555,30 @@ const Contracts = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Pick-up Date</Label>
-                                        <Input disabled={isReadOnly || isConfirmed} type="date" value={formData.pickupDate} onChange={e => handleChange('pickupDate', e.target.value)} />
+                                        <Input
+                                            disabled={isReadOnly || isConfirmed}
+                                            type="date"
+                                            value={formData.pickupDate}
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                handleChange('pickupDate', v);
+                                                if (v && !editingId) {
+                                                    const [y, mo, d] = v.split('-').map(Number);
+                                                    handleChange('dropoffDate', format(addDays(new Date(y, mo - 1, d), 1), 'yyyy-MM-dd'));
+                                                }
+                                            }}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Pick-up Time</Label>
                                         {/* Time stays editable in IN_PROGRESS so the operator can correct the
                                             real handover time after the customer arrives. Date is still locked. */}
-                                        <TimeInput24 disabled={isReadOnly || isReturned} value={formData.pickupTime} onChange={e => handleChange('pickupTime', e.target.value)} />
-                                        <p className="text-[11px] text-muted-foreground">Drop-off time stays in sync with pick-up time automatically.</p>
+                                        <TimeInput24
+                                            disabled={isReadOnly || isReturned}
+                                            value={formData.pickupTime}
+                                            onChange={(e) => handleChange('pickupTime', e.target.value)}
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">Pick-up and drop-off times are saved as entered (status changes do not reset them).</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Drop-off Date</Label>
@@ -1508,6 +1588,11 @@ const Contracts = () => {
                                         <Label>Drop-off Time</Label>
                                         <TimeInput24 disabled={isReadOnly || isReturned} value={formData.dropoffTime} onChange={e => handleChange('dropoffTime', e.target.value)} />
                                     </div>
+                                    {formData.pickupDate && formData.dropoffDate && formData.pickupTime && formData.dropoffTime && contractRentalDayUnits > 0 ? (
+                                        <p className="col-span-2 text-[11px] font-medium text-indigo-600">
+                                            Rental period: {contractRentalPeriodLabel}
+                                        </p>
+                                    ) : null}
                                 </div>
                             )}
 
@@ -2259,13 +2344,8 @@ const Contracts = () => {
                                 </h4>
                                 {(() => {
                                     const rate = Number(formData.appliedDailyRate) || 0;
-                                    const pickup = new Date(formData.pickupDate);
-                                    const dropoff = new Date(formData.dropoffDate);
-                                    let days = 0;
-                                    if (!isNaN(pickup) && !isNaN(dropoff) && formData.pickupDate && formData.dropoffDate) {
-                                        days = Math.max(1, differenceInCalendarDays(dropoff, pickup));
-                                    }
-                                    const rentalChargeBase = rate * days;
+                                    const rentalDayUnits = contractRentalDayUnits;
+                                    const rentalChargeBase = Number((rate * rentalDayUnits).toFixed(2));
                                     const deposit = Number(formData.securityDeposit) || 0;
                                     const advancePaid = Math.max(0, Number(formData.advancePaymentAmount) || 0);
                                     const advancePaidDateText = formData.advancePaymentDate
@@ -2488,7 +2568,9 @@ const Contracts = () => {
                                         return (
                                             <div className="space-y-3">
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="font-medium text-muted-foreground italic">Rental Charge ({days} Days × {new Intl.NumberFormat('en-US').format(rate)} LKR)</span>
+                                                <span className="font-medium text-muted-foreground italic">
+                                                    Rental Charge ({contractRentalPeriodLabel} × {new Intl.NumberFormat('en-US').format(rate)} LKR/day)
+                                                </span>
                                                 <span className="font-black text-foreground">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR' }).format(rentalChargeBase)}</span>
                                             </div>
                                             {/* Late return extras are shown in the Return Settlement/Extras breakdown. */}
@@ -2530,25 +2612,44 @@ const Contracts = () => {
                                                             </span>
                                                         </div>
                                                     )}
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="w-full sm:w-auto rounded-xl border-primary/30"
-                                                        onClick={openAdvanceReceipt}
-                                                        disabled={isReadOnly || hasPostedAdvanceReceipt}
-                                                        aria-disabled={isReadOnly || hasPostedAdvanceReceipt}
-                                                        title={hasPostedAdvanceReceipt ? 'Advance receipt already issued for this contract' : undefined}
-                                                    >
-                                                        {hasPostedAdvanceReceipt
-                                                            ? 'Advance receipt issued'
-                                                            : formData.status === 'UPCOMING'
+                                                    {!hasPostedAdvanceReceipt ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full sm:w-auto rounded-xl border-primary/30"
+                                                            onClick={openAdvanceReceipt}
+                                                            disabled={isReadOnly}
+                                                        >
+                                                            {formData.status === 'UPCOMING'
                                                                 ? 'Create Advance Receipt'
                                                                 : 'Issue advance receipt'}
-                                                    </Button>
+                                                        </Button>
+                                                    ) : (
+                                                        <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="flex-1 rounded-xl border-emerald-500/40 text-emerald-800"
+                                                                disabled={!activeAdvanceReceipt?.id}
+                                                                onClick={() => printAdvanceReceipt(activeAdvanceReceipt)}
+                                                            >
+                                                                <Printer className="w-4 h-4 mr-1" />
+                                                                Print / Save PDF
+                                                                {activeAdvanceReceipt?.receiptNo
+                                                                    ? ` (${activeAdvanceReceipt.receiptNo})`
+                                                                    : ''}
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                     {hasPostedAdvanceReceipt ? (
                                                         <p className="text-[11px] text-muted-foreground">
-                                                            An advance receipt has already been issued for this contract. Reverse it from Bookings → Advance receipts to issue a new one.
+                                                            Advance receipt issued
+                                                            {activeAdvanceReceipt?.receiptNo
+                                                                ? `: ${activeAdvanceReceipt.receiptNo}. `
+                                                                : '. '}
+                                                            Reverse from Bookings → Advance receipts to issue a new one.
                                                         </p>
                                                     ) : (
                                                         <p className="text-[11px] text-muted-foreground">
@@ -3706,7 +3807,7 @@ const Contracts = () => {
                             <div className="grid w-full gap-3 pt-2">
                                 <Button 
                                     className="h-14 rounded-2xl bg-[#25D366] hover:bg-[#22c35e] text-white font-black uppercase tracking-widest text-xs gap-3 shadow-lg shadow-[#25D366]/20 transition-all active:scale-95 font-calibri-bold"
-                                    onClick={() => {
+                                    onClick={async () => {
                                         if (!currentSavedReceipt) return;
                                         const rawPhone = pickCustomerWhatsAppPhone(currentSavedReceipt.contract?.customer);
                                         const phone = normalizePhoneForWhatsApp(rawPhone);
@@ -3714,7 +3815,15 @@ const Contracts = () => {
                                             alert('No mobile number found for this customer.');
                                             return;
                                         }
-                                        const shareUrl = currentSavedReceipt.shareUrl;
+                                        let shareUrl = currentSavedReceipt.shareUrl;
+                                        try {
+                                            const { data: linkData } = await api.get(
+                                                `/advance-receipts/${currentSavedReceipt.id}/share-link`
+                                            );
+                                            if (linkData?.shareUrl) shareUrl = linkData.shareUrl;
+                                        } catch {
+                                            /* use link from issue response */
+                                        }
                                         if (!shareUrl) {
                                             alert('Share link not available.');
                                             return;
@@ -3729,22 +3838,29 @@ const Contracts = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <Button 
                                         variant="outline"
-                                        onClick={() => {
-                                            if (currentSavedReceipt?.shareUrl) {
-                                                window.open(currentSavedReceipt.shareUrl, '_blank', 'noopener,noreferrer');
-                                            }
-                                        }}
+                                        onClick={() => printAdvanceReceipt()}
                                         className="h-14 rounded-2xl border-border font-black uppercase tracking-widest text-[10px] gap-2 hover:bg-secondary font-calibri-bold"
                                     >
-                                        <FileText className="w-4 h-4 text-rose-500" /> View / Print PDF
+                                        <Printer className="w-4 h-4 text-rose-500" /> Print / Save PDF
                                     </Button>
                                     <Button 
                                         variant="outline"
                                         onClick={async () => {
-                                            if (currentSavedReceipt?.shareUrl) {
-                                                await navigator.clipboard.writeText(currentSavedReceipt.shareUrl);
+                                            if (!currentSavedReceipt?.id) return;
+                                            try {
+                                                const { data: linkData } = await api.get(
+                                                    `/advance-receipts/${currentSavedReceipt.id}/share-link`
+                                                );
+                                                const url = linkData?.shareUrl || currentSavedReceipt.shareUrl;
+                                                if (!url) {
+                                                    alert('Share link not available.');
+                                                    return;
+                                                }
+                                                await navigator.clipboard.writeText(url);
                                                 setCopiedReceiptLink(true);
                                                 setTimeout(() => setCopiedReceiptLink(false), 2000);
+                                            } catch (e) {
+                                                alert(e.response?.data?.message || 'Could not copy link.');
                                             }
                                         }}
                                         className="h-14 rounded-2xl border-border font-black uppercase tracking-widest text-[10px] gap-2 hover:bg-secondary font-calibri-bold"

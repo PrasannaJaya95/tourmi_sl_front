@@ -16,7 +16,8 @@ import {
     ShieldCheck,
     FileText,
     Mail,
-    Info
+    Info,
+    Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoPng from '../assets/logo.png';
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/popover";
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
+import { isAdminOrSuperAdmin as checkAdminOrSuperAdmin } from '../lib/roles';
 
 const DashboardLayout = () => {
     const { logout, user } = useAuth();
@@ -54,6 +56,19 @@ const DashboardLayout = () => {
             observer.disconnect();
         };
     }, []);
+
+    const isAdminOrSuperAdmin = checkAdminOrSuperAdmin(user?.role);
+
+    const settingsMenuChildren = [
+        { label: 'General Settings', path: '/settings/general' },
+        { label: 'Company Profile Setup', path: '/settings/company' },
+        { label: 'User Registry', path: '/settings/users' },
+        { label: 'Security Policies', path: '/settings/permissions' },
+        { label: 'Email Notifications', path: '/settings/email' },
+        ...(isAdminOrSuperAdmin
+            ? [{ label: 'System Backup', path: '/settings/system-backup' }]
+            : []),
+    ];
 
     const adminNavItems = [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -113,15 +128,9 @@ const DashboardLayout = () => {
             ]
         },
         {
-            label: 'System',
+            label: 'Settings',
             icon: Settings,
-            children: [
-                { label: 'General Settings', path: '/settings/general' },
-                { label: 'Company Profile Setup', path: '/settings/company' },
-                { label: 'User Registry', path: '/settings/users' },
-                { label: 'Security Policies', path: '/settings/permissions' },
-                { label: 'Email Notifications', path: '/settings/email' }
-            ]
+            children: settingsMenuChildren,
         },
         { label: 'About', icon: Info, path: '/about' },
     ];
@@ -421,6 +430,11 @@ const DashboardLayout = () => {
                                     <Link to="/settings/company" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-[#3B82F6] hover:bg-[#3B82F6]/5 transition-colors group">
                                         <FileText className="h-4 w-4" /> Company
                                     </Link>
+                                    {isAdminOrSuperAdmin && (
+                                        <Link to="/settings/system-backup" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-[#3B82F6] hover:bg-[#3B82F6]/5 transition-colors group">
+                                            <Database className="h-4 w-4" /> System Backup
+                                        </Link>
+                                    )}
                                 </div>
                             </PopoverContent>
                         </Popover>

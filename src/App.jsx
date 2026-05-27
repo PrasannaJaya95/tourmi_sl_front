@@ -23,6 +23,7 @@ const GeneralSettings = React.lazy(() => import('./pages/GeneralSettings'));
 const PermissionGroupManagement = React.lazy(() => import('./pages/PermissionGroupManagement'));
 const EmailSettings = React.lazy(() => import('./pages/EmailSettings'));
 const CompanyProfileSettings = React.lazy(() => import('./pages/CompanyProfileSettings'));
+const SystemBackup = React.lazy(() => import('./pages/SystemBackup'));
 const Contracts = React.lazy(() => import('./pages/Contracts'));
 const Invoices = React.lazy(() => import('./pages/Invoices'));
 const AdvanceReceipts = React.lazy(() => import('./pages/AdvanceReceipts'));
@@ -158,10 +159,11 @@ function App() {
                     <Route path="/settings/general" element={<GeneralSettings />} />
                   </Route>
 
-                  {/* Email SMTP Settings - Admin only */}
-                  <Route element={<RoleProtectedRoute allowedRoles={['ADMIN']} />}>
+                  {/* Settings — Admin / Super Admin only */}
+                  <Route element={<RoleProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/settings/email" element={<EmailSettings />} />
                     <Route path="/settings/company" element={<CompanyProfileSettings />} />
+                    <Route path="/settings/system-backup" element={<SystemBackup />} />
                   </Route>
 
                   {/* Customer Only Routes */}

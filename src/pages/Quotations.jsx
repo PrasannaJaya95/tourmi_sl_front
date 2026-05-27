@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { format, differenceInCalendarDays, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import api, { resolveServerUrl } from '../lib/api';
 import { formatDateTime } from '../lib/dates';
 import useDebounce from '@/hooks/useDebounce';
@@ -50,6 +50,33 @@ function combineLocalDateTimeToIso(dateYmd, timeHm) {
 
 /** Day-first date + 24h time, identical to backend's quotation share page. */
 const formatQuotationDateTime = formatDateTime;
+
+const MS_PER_RENTAL_DAY = 24 * 60 * 60 * 1000;
+
+/** Exact rental length in 24h day-units (pick-up 08:00 → next day 08:00 = 1). */
+function computeRentalDayUnits(pickupIso, dropoffIso) {
+    const start = new Date(pickupIso);
+    const end = new Date(dropoffIso);
+    const ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return 0;
+    return ms / MS_PER_RENTAL_DAY;
+}
+
+function formatRentalPeriod(pickupIso, dropoffIso) {
+    const start = new Date(pickupIso);
+    const end = new Date(dropoffIso);
+    const ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return '—';
+    const totalMinutes = Math.floor(ms / 60000);
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+    const parts = [];
+    if (days) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+    if (hours) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+    if (minutes) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+    return parts.length ? parts.join(', ') : 'Less than 1 minute';
+}
 
 /** Same calendar instant within 2s — avoids ref/live ISO mismatch after save or timezone quirks */
 function samePickupDropoffInstant(a, b) {
@@ -319,13 +346,24 @@ export default function Quotations() {
         }
     }, [customerMode, selectedCustomer]);
 
-    const rentalDays = useMemo(() => {
-        if (!pickupDate || !dropoffDate) return 1;
-        const start = new Date(combineLocalDateTimeToIso(pickupDate, pickupTime));
-        const end = new Date(combineLocalDateTimeToIso(dropoffDate, dropoffTime));
-        const days = differenceInCalendarDays(end, start);
-        return Math.max(1, Number.isFinite(days) ? days : 1);
-    }, [pickupDate, dropoffDate, pickupTime, dropoffTime]);
+    const pickupIso = useMemo(
+        () => combineLocalDateTimeToIso(pickupDate, pickupTime),
+        [pickupDate, pickupTime]
+    );
+    const dropoffIso = useMemo(
+        () => combineLocalDateTimeToIso(dropoffDate, dropoffTime),
+        [dropoffDate, dropoffTime]
+    );
+
+    const rentalDayUnits = useMemo(
+        () => computeRentalDayUnits(pickupIso, dropoffIso),
+        [pickupIso, dropoffIso]
+    );
+
+    const rentalPeriodLabel = useMemo(
+        () => formatRentalPeriod(pickupIso, dropoffIso),
+        [pickupIso, dropoffIso]
+    );
 
     const baseDailyRate = useMemo(() => {
         if (!selectedVehicle) return 0;
@@ -346,7 +384,10 @@ export default function Quotations() {
         return Math.max(0, Number(discounted.toFixed(2)));
     }, [baseDailyRate, discountType, discountValue]);
 
-    const baseAmount = useMemo(() => dailyRate * rentalDays, [dailyRate, rentalDays]);
+    const baseAmount = useMemo(
+        () => Number((dailyRate * rentalDayUnits).toFixed(2)),
+        [dailyRate, rentalDayUnits]
+    );
     const extraAmount = useMemo(
         () => extraCharges.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
         [extraCharges]
@@ -413,8 +454,8 @@ export default function Quotations() {
     };
 
     const buildLiveQuotationData = () => {
-        const pickupDateIso = combineLocalDateTimeToIso(pickupDate, pickupTime);
-        const dropoffDateIso = combineLocalDateTimeToIso(dropoffDate, dropoffTime);
+        const pickupDateIso = pickupIso;
+        const dropoffDateIso = dropoffIso;
         return {
             quotationNo,
             issueDate: new Date().toISOString(),
@@ -427,7 +468,7 @@ export default function Quotations() {
             vehicleId,
             pickupDate: pickupDateIso,
             dropoffDate: dropoffDateIso,
-            rentalDays,
+            rentalDays: rentalDayUnits,
             dailyRate: Number(dailyRate || 0),
             baseAmount: Number(baseAmount || 0),
             extraCharges: extraCharges
@@ -456,7 +497,7 @@ export default function Quotations() {
             '',
             `Quotation *${q.quotationNo || 'Draft'}*`,
             `Vehicle: ${veh?.licensePlate || '-'}${vehLabel ? ` (${vehLabel})` : ''}`,
-            `Period: ${formatQuotationDateTime(q.pickupDate)} → ${formatQuotationDateTime(q.dropoffDate)} (${Number(q.rentalDays || 1)} days)`,
+            `Period: ${formatQuotationDateTime(q.pickupDate)} → ${formatQuotationDateTime(q.dropoffDate)} (${formatRentalPeriod(q.pickupDate, q.dropoffDate)})`,
             `Daily rate: LKR ${Number(q.dailyRate || 0).toLocaleString()}`,
             `Base rental: LKR ${Number(q.baseAmount || 0).toLocaleString()}`,
         ];
@@ -647,7 +688,7 @@ export default function Quotations() {
 
         const vehLabel = `${vehicle?.vehicleModel?.brand?.name || ''} ${vehicle?.vehicleModel?.name || ''}`.trim();
         const rowsHtml = `
-      <tr><td>Daily rate × ${Number(q.rentalDays || 1)} day(s) @ ${Number(q.dailyRate || 0).toLocaleString()} LKR</td><td>${Number(q.baseAmount || 0).toLocaleString()}</td></tr>
+      <tr><td>Base rental (${qEscape(formatRentalPeriod(q.pickupDate, q.dropoffDate))} @ ${Number(q.dailyRate || 0).toLocaleString()} LKR/day)</td><td>${Number(q.baseAmount || 0).toLocaleString()}</td></tr>
       ${rows.map((r) => `
       <tr><td>${qEscape(r.description || 'Extra charge')}</td><td>${Number(r.amount || 0).toLocaleString()}</td></tr>`).join('')}`;
 
@@ -675,7 +716,7 @@ export default function Quotations() {
           <div class="doc-main-id">${qEscape(q.quotationNo || 'Draft')}</div>
           <div class="doc-meta">Issued <b>${qEscape(formatQuotationDateTime(issueDate))}</b> · Valid through <b>${qEscape(formatQuotationDateTime(validUntil))}</b></div>
         </div>
-        <div class="doc-pill doc-pill-em">${Number(q.rentalDays || 1)} day rental</div>
+        <div class="doc-pill doc-pill-em">${qEscape(formatRentalPeriod(q.pickupDate, q.dropoffDate))}</div>
       </div>
 
       <div class="doc-cards">
@@ -763,6 +804,9 @@ export default function Quotations() {
         const q = buildLiveQuotationData();
         if (!q.vehicleId) return alert('Please select a vehicle first.');
         if (!String(q.customerName || '').trim()) return alert('Please provide customer name.');
+        if (!q.rentalDays || q.rentalDays <= 0) {
+            return alert('Drop-off must be after pick-up (each rental day is 24 hours from pick-up time).');
+        }
 
         const conflicts = checkVehicleConflicts(q.vehicleId, q.pickupDate, q.dropoffDate);
         if (conflicts.length > 0) {
@@ -997,7 +1041,18 @@ export default function Quotations() {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="space-y-2">
                             <Label>Pick-up Date</Label>
-                            <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} />
+                            <Input
+                                type="date"
+                                value={pickupDate}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setPickupDate(v);
+                                    if (v) {
+                                        const [y, mo, d] = v.split('-').map(Number);
+                                        setDropoffDate(format(addDays(new Date(y, mo - 1, d), 1), 'yyyy-MM-dd'));
+                                    }
+                                }}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Pick-up Time</Label>
@@ -1009,7 +1064,7 @@ export default function Quotations() {
                                     setDropoffTime(v);
                                 }}
                             />
-                            <p className="text-[11px] text-muted-foreground">Drop-off matches pick-up time.</p>
+                            <p className="text-[11px] text-muted-foreground">Default: same time next calendar day = 1 rental day (24h). Amount uses exact duration.</p>
                         </div>
                         <div className="space-y-2">
                             <Label>Drop-off Date</Label>
@@ -1196,7 +1251,9 @@ export default function Quotations() {
                                     </TableHeader>
                                     <TableBody>
                                         <TableRow>
-                                            <TableCell className="font-medium">Base rental ({rentalDays} day(s) × {Number(dailyRate).toLocaleString()})</TableCell>
+                                            <TableCell className="font-medium">
+                                                Base rental ({rentalPeriodLabel} × {Number(dailyRate).toLocaleString()}/day)
+                                            </TableCell>
                                             <TableCell className="text-right font-mono font-semibold">{Number(baseAmount).toLocaleString()}</TableCell>
                                         </TableRow>
                                         <TableRow>

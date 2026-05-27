@@ -80,11 +80,23 @@ function formatBillPeriodLabel(bill) {
     return `${months[(bill.month || 1) - 1]} ${bill.year}`;
 }
 
+/** Service vendor: entire fleet. Vehicle owner: only vehicles assigned to that vendor. */
+function getWizardVehiclesForVendor(vendorId, vendorsList, fleetVehiclesList) {
+    if (!vendorId) return [];
+    const vendor = vendorsList.find((v) => v.id === vendorId);
+    const vendorType = vendor?.vendorDetails?.vendorType || 'VEHICLE_OWNER';
+    if (vendorType === 'SERVICE_VENDOR') {
+        return fleetVehiclesList;
+    }
+    return fleetVehiclesList.filter((v) => v.vendorId === vendorId);
+}
+
 export default function VendorBills() {
     const { user } = useAuth();
     const [bills, setBills] = useState([]);
     const [vendors, setVendors] = useState([]);
     const [vehicles, setVehicles] = useState([]);
+    const [fleetVehicles, setFleetVehicles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 20 });
@@ -153,10 +165,27 @@ export default function VendorBills() {
         try {
             const { data } = await api.get('/vehicles?limit=1000');
             const vehiclesData = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
-            setVehicles(vehiclesData.filter(v => v.ownership === 'THIRD_PARTY'));
+            setFleetVehicles(vehiclesData);
+            setVehicles(vehiclesData.filter((v) => v.ownership === 'THIRD_PARTY'));
         } catch (error) {
             console.error('Failed to fetch vehicles', error);
         }
+    };
+
+    const wizardVehicleOptions = getWizardVehiclesForVendor(
+        wizardData.vendorId,
+        vendors,
+        fleetVehicles
+    );
+
+    const handleWizardVendorChange = (vendorId) => {
+        const nextOptions = getWizardVehiclesForVendor(vendorId, vendors, fleetVehicles);
+        const vehicleStillValid = nextOptions.some((v) => v.id === wizardData.vehicleId);
+        setWizardData({
+            ...wizardData,
+            vendorId,
+            vehicleId: vehicleStillValid ? wizardData.vehicleId : '',
+        });
     };
 
     const fetchBills = async () => {
@@ -568,7 +597,7 @@ export default function VendorBills() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Vendor Name</Label>
-                                        <Select value={wizardData.vendorId} onValueChange={(val) => setWizardData({ ...wizardData, vendorId: val })}>
+                                        <Select value={wizardData.vendorId} onValueChange={handleWizardVendorChange}>
                                             <SelectTrigger className="h-12 bg-secondary/50 border-none rounded-xl">
                                                 <SelectValue placeholder="Select Vendor" />
                                             </SelectTrigger>
@@ -586,7 +615,7 @@ export default function VendorBills() {
                                                 <SelectValue placeholder="Select Vehicle" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {vehicles.filter(v => !wizardData.vendorId || v.vendorId === wizardData.vendorId).map(v => (
+                                                {wizardVehicleOptions.map((v) => (
                                                     <SelectItem key={v.id} value={v.id}>{v.licensePlate}</SelectItem>
                                                 ))}
                                             </SelectContent>
