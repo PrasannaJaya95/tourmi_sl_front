@@ -3,7 +3,7 @@ import api from '../lib/api';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Globe, ShieldAlert, Save, RefreshCw, Radio, CreditCard, Settings2, Wallet, Trash2, Coins, Palette, ImageIcon, Flame, AlertCircle } from 'lucide-react';
+import { Globe, ShieldAlert, Save, RefreshCw, Radio, CreditCard, Settings2, Wallet, Trash2, Coins, Palette, ImageIcon, Flame, AlertCircle, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, compressImage } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -239,6 +239,11 @@ const GeneralSettings = () => {
                     <TabsTrigger value="payments" className="rounded-xl px-8 py-3 data-[state=active]:bg-card data-[state=active]:shadow-lg font-black uppercase tracking-widest text-xs">
                         Payment Options
                     </TabsTrigger>
+                    {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.role) && (
+                        <TabsTrigger value="sequences" className="rounded-xl px-8 py-3 data-[state=active]:bg-card data-[state=active]:shadow-lg font-black uppercase tracking-widest text-xs">
+                            Sequence Engine
+                        </TabsTrigger>
+                    )}
                     {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.role) && (
                         <TabsTrigger value="system" className="rounded-xl px-8 py-3 data-[state=active]:bg-card data-[state=active]:shadow-lg font-black uppercase tracking-widest text-xs bg-rose-500/5 text-rose-600 data-[state=active]:text-rose-600">
                             System Control
@@ -713,6 +718,12 @@ const GeneralSettings = () => {
                 </TabsContent>
 
                 {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.role) && (
+                    <TabsContent value="sequences" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <SequenceManager />
+                    </TabsContent>
+                )}
+
+                {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.role) && (
                     <TabsContent value="system" className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
                         {!isSystemControlVerified ? (
                             <div className="max-w-xl mx-auto py-20">
@@ -766,9 +777,7 @@ const GeneralSettings = () => {
                                 </Card>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                                <SequenceManager />
-
+                            <div className="max-w-3xl mx-auto">
                                 {/* Total System Wipe */}
                                 <Card className="bg-card border-border shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden border-rose-500/20">
                                     <CardHeader className="p-10 pb-4">
