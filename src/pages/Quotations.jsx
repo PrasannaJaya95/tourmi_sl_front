@@ -18,6 +18,7 @@ import {
     pickCustomerWhatsAppPhone,
     openWhatsAppWeb,
 } from '../lib/whatsappWeb';
+import { discountPayloadFields } from '@/utils/discount';
 import {
     Dialog,
     DialogContent,
@@ -470,6 +471,7 @@ export default function Quotations() {
             dropoffDate: dropoffDateIso,
             rentalDays: rentalDayUnits,
             dailyRate: Number(dailyRate || 0),
+            ...discountPayloadFields(baseDailyRate, discountType, discountValue),
             baseAmount: Number(baseAmount || 0),
             extraCharges: extraCharges
                 .map((r) => ({ description: r.description || '', amount: Number(r.amount) || 0 }))

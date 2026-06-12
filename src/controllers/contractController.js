@@ -92,6 +92,17 @@ const contractSchema = z.object({
         const n = Number(val);
         return Number.isFinite(n) ? n : undefined;
     }),
+    baseDailyRate: z.union([z.number(), z.string()]).optional().transform((val) => {
+        if (val === null || val === undefined || val === '') return undefined;
+        const n = Number(val);
+        return Number.isFinite(n) ? n : undefined;
+    }),
+    discountType: z.enum(['PERCENT', 'AMOUNT']).optional().nullable(),
+    discountValue: z.union([z.number(), z.string()]).optional().transform((val) => {
+        if (val === null || val === undefined || val === '') return undefined;
+        const n = Number(val);
+        return Number.isFinite(n) ? n : undefined;
+    }),
     securityDeposit: z.union([z.number(), z.string()]).transform((val) => Number(val) || 0),
     advancePaymentAmount: z.union([z.number(), z.string()]).optional().transform((val) => Number(val) || 0),
     advancePaymentDate: z.union([z.string(), z.date(), z.null()]).optional().transform((val) => val ? new Date(val) : undefined),
@@ -461,19 +472,31 @@ exports.updateContract = async (req, res) => {
 
         const previousContract = await prisma.contract.findUnique({
             where: { id },
-            select: { status: true, endOdometer: true, appliedDailyRate: true }
+            select: {
+                status: true,
+                endOdometer: true,
+                appliedDailyRate: true,
+                baseDailyRate: true,
+                discountType: true,
+                discountValue: true,
+            },
         });
         const previousStatus = previousContract?.status;
 
+        const rateFieldsChanged =
+            (data.appliedDailyRate !== undefined &&
+                Number(data.appliedDailyRate) !== Number(previousContract?.appliedDailyRate || 0)) ||
+            (data.baseDailyRate !== undefined &&
+                Number(data.baseDailyRate) !== Number(previousContract?.baseDailyRate || 0)) ||
+            (data.discountType !== undefined &&
+                String(data.discountType || '') !== String(previousContract?.discountType || '')) ||
+            (data.discountValue !== undefined &&
+                Number(data.discountValue) !== Number(previousContract?.discountValue || 0));
+
         // Business rule: discounted/base daily rate changes are only allowed while contract is UPCOMING.
-        if (
-            data.appliedDailyRate !== undefined &&
-            previousContract &&
-            previousContract.status !== 'UPCOMING' &&
-            Number(data.appliedDailyRate) !== Number(previousContract.appliedDailyRate || 0)
-        ) {
+        if (previousContract && previousContract.status !== 'UPCOMING' && rateFieldsChanged) {
             return res.status(400).json({
-                message: 'Daily rate can be changed only when contract status is UPCOMING'
+                message: 'Daily rate and discount can be changed only when contract status is UPCOMING',
             });
         }
 
@@ -808,19 +831,30 @@ exports.updateContract = async (req, res) => {
                         });
                     }
 
-                    // 2. Record Late Extra Income (Native Insert)
-                    if (extraChargesTotal > 0) {
-                        await ledgerCollection.insertOne({
-                            type: 'INCOME',
-                            amount: extraChargesTotal,
-                            currency: invoice.currency || 'LKR',
-                            description: `Late return extra charges income for ${currentContract.contractNo || ''}`.trim(),
-                            invoiceId: new ObjectId(invoice.id),
+                    // Extra-charge income is recorded when the RETURN invoice is paid.
+                    const paidReturnInvoice = await prisma.invoice.findFirst({
+                        where: { contractId: id, type: 'RETURN', status: 'PAID' },
+                    });
+                    if (extraChargesTotal > 0 && !paidReturnInvoice) {
+                        const alreadyPosted = await ledgerCollection.findOne({
                             contractId: new ObjectId(id),
-                            customerId: new ObjectId(currentContract.customerId),
-                            vehicleId: new ObjectId(contract.vehicleId),
-                            createdAt: new Date()
+                            invoiceId: new ObjectId(invoice.id),
+                            type: 'INCOME',
+                            description: { $regex: 'Late return extra charges' },
                         });
+                        if (!alreadyPosted) {
+                            await ledgerCollection.insertOne({
+                                type: 'INCOME',
+                                amount: extraChargesTotal,
+                                currency: invoice.currency || 'LKR',
+                                description: `Late return extra charges income for ${currentContract.contractNo || ''}`.trim(),
+                                invoiceId: new ObjectId(invoice.id),
+                                contractId: new ObjectId(id),
+                                customerId: new ObjectId(currentContract.customerId),
+                                vehicleId: new ObjectId(contract.vehicleId),
+                                createdAt: new Date(),
+                            });
+                        }
                     }
                 }
             }

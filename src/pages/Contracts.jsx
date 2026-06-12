@@ -4,6 +4,7 @@ import api from '@/lib/api';
 import { printHtmlDocument } from '@/lib/printHtmlDocument';
 import { partitionInvoiceLinesForAdvance } from '@/lib/invoiceLineTable';
 import { cn } from '@/lib/utils';
+import { restoreDiscountFromRecord, discountPayloadFields } from '@/utils/discount';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TimeInput24 } from '@/components/ui/time-input-24';
@@ -795,16 +796,10 @@ const Contracts = () => {
         });
 
         const detectedBaseRate = getBaseRateForCustomerVehicle(contract.vehicleId, contract.customerId);
-        const appliedRate = Number(contract.appliedDailyRate || 0);
-        if (detectedBaseRate > 0 && appliedRate <= detectedBaseRate) {
-            const pct = ((detectedBaseRate - appliedRate) / detectedBaseRate) * 100;
-            setDiscountType('PERCENT');
-            setDiscountValue(String(Number.isFinite(pct) ? Number(pct.toFixed(2)) : 0));
-        } else {
-            setDiscountType('PERCENT');
-            setDiscountValue('0');
-        }
-        setBaseDailyRate(detectedBaseRate > 0 ? detectedBaseRate : appliedRate);
+        const restored = restoreDiscountFromRecord(contract, detectedBaseRate);
+        setDiscountType(restored.discountType);
+        setDiscountValue(restored.discountValue);
+        setBaseDailyRate(restored.baseDailyRate);
 
         // Populate exchange checklists
         if (contract.vehicleExchanges) {
@@ -868,6 +863,7 @@ const Contracts = () => {
 
             // Helper to clean and convert numbers
             const toNum = (val) => (val === '' || val === null || val === undefined) ? 0 : Number(val);
+            const discountFields = discountPayloadFields(baseDailyRate, discountType, discountValue);
 
             // Refine payload based on status to avoid hitting Prisma/MongoDB "50 field" update limits (P2010)
             if (status === 'RETURN' || status === 'COMPLETED') {
@@ -884,6 +880,7 @@ const Contracts = () => {
 
                     // Financials
                     appliedDailyRate: toNum(rawPayload.appliedDailyRate),
+                    ...discountFields,
                     securityDeposit: toNum(rawPayload.securityDeposit),
                     dailyKmLimit: toNum(rawPayload.dailyKmLimit),
                     allocatedKm: toNum(rawPayload.allocatedKm),
@@ -936,6 +933,7 @@ const Contracts = () => {
                     dropoffTime: rawPayload.dropoffTime,
 
                     appliedDailyRate: toNum(rawPayload.appliedDailyRate),
+                    ...discountFields,
                     securityDeposit: toNum(rawPayload.securityDeposit),
                     advancePaymentAmount: toNum(rawPayload.advancePaymentAmount),
                     advancePaymentDate: rawPayload.advancePaymentDate,
