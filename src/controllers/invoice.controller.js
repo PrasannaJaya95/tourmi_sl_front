@@ -6,6 +6,11 @@ const { ObjectId } = require('mongodb');
 const { sendTemplateEmail } = require('../services/email/email.service');
 const { DOCUMENT_PRINT_STYLES } = require('../lib/documentPrintStyles');
 const { formatDateTime } = require('../lib/dates');
+const {
+    combineDateAndTime,
+    computeRentalDayUnits,
+    formatRentalPeriod,
+} = require('../lib/rentalPeriod');
 
 const INVOICE_SEQ_KEY = 'invoice_sequence';
 const CREDIT_NOTE_SEQ_KEY = 'credit_note_sequence';
@@ -411,41 +416,6 @@ function daysBetween(pickupDate, dropoffDate) {
     return Math.max(1, raw || 1);
 }
 
-function parseTimeTo24h(timeStr) {
-    if (!timeStr || typeof timeStr !== 'string') return null;
-    const t = timeStr.trim().toUpperCase();
-
-    const m24 = /^(\d{1,2}):(\d{2})$/.exec(t);
-    if (m24) {
-        const h = Number(m24[1]);
-        const min = Number(m24[2]);
-        if (h >= 0 && h <= 23 && min >= 0 && min <= 59) return { h, min };
-        return null;
-    }
-
-    const m12 = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/.exec(t);
-    if (m12) {
-        let h = Number(m12[1]);
-        const min = Number(m12[2]);
-        const ap = m12[3];
-        if (h < 1 || h > 12 || min < 0 || min > 59) return null;
-        if (ap === 'PM' && h !== 12) h += 12;
-        if (ap === 'AM' && h === 12) h = 0;
-        return { h, min };
-    }
-
-    return null;
-}
-
-function combineDateAndTime(dateVal, timeStr) {
-    if (!dateVal) return null;
-    const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
-    if (isNaN(d.getTime())) return null;
-    const parsed = parseTimeTo24h(timeStr);
-    if (!parsed) return null;
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), parsed.h, parsed.min, 0, 0);
-}
-
 /**
  * Same line math as createUpfrontInvoiceForContract (single source of truth).
  *
@@ -460,8 +430,21 @@ function combineDateAndTime(dateVal, timeStr) {
 function buildUpfrontLinesAndTotals(contract, opts = {}) {
     const hasPostedAdvanceReceipt = Boolean(opts.hasPostedAdvanceReceipt);
     const rate = Number(contract.appliedDailyRate) || 0;
-    const scheduledDays = daysBetween(contract.pickupDate, contract.dropoffDate);
-    const scheduledRentalCharge = rate * scheduledDays;
+    const rentalDayUnits =
+        computeRentalDayUnits(
+            contract.pickupDate,
+            contract.pickupTime,
+            contract.dropoffDate,
+            contract.dropoffTime
+        ) ?? daysBetween(contract.pickupDate, contract.dropoffDate);
+    const rentalPeriodLabel =
+        formatRentalPeriod(
+            contract.pickupDate,
+            contract.pickupTime,
+            contract.dropoffDate,
+            contract.dropoffTime
+        ) ?? `${rentalDayUnits} day(s)`;
+    const scheduledRentalCharge = Number((rate * rentalDayUnits).toFixed(2));
 
     let overtimeMinutesCeil = 0;
     let extraDays = 0;
@@ -492,10 +475,10 @@ function buildUpfrontLinesAndTotals(contract, opts = {}) {
     const lines = [
         {
             code: 'RENTAL',
-            description: `Rental Charge (${scheduledDays} day(s) × ${rate} LKR)`,
-            quantity: scheduledDays,
+            description: `Rental Charge (${rentalPeriodLabel} × ${rate} LKR/day)`,
+            quantity: rentalDayUnits,
             unitPrice: rate,
-            amount: scheduledRentalOnly,
+            amount: scheduledRentalCharge,
         },
     ];
 

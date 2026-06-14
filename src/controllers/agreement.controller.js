@@ -5,6 +5,10 @@ const { ObjectId } = require('mongodb');
 const { getMongoClient, getNextSequenceValue } = require('../utils/sequence');
 const { DOCUMENT_PRINT_STYLES } = require('../lib/documentPrintStyles');
 const { formatDate } = require('../lib/dates');
+const {
+    getAgreementToDate,
+    getAgreementRentalDays,
+} = require('../lib/rentalPeriod');
 
 const AGREEMENT_SEQ_KEY = 'agreement_sequence';
 const AGREEMENT_SHARE_TOKEN_TTL = '7d';
@@ -132,15 +136,19 @@ function buildAgreementData(contract, company) {
     const month = contractDate.toLocaleString('en-US', { month: 'long' });
     const year = contractDate.getFullYear();
     const fromDate = contract?.pickupDate ? formatDate(contract.pickupDate, '') : '';
-    const toDate = contract?.dropoffDate ? formatDate(contract.dropoffDate, '') : '';
-    // Rental duration in whole days, mirroring the calculation used by
-    // `contractController.js` and `invoice.controller.js` so the agreement
-    // shows exactly the same day count the customer was billed for.
-    let days = 0;
-    if (contract?.pickupDate && contract?.dropoffDate) {
-        const ms = new Date(contract.dropoffDate).getTime() - new Date(contract.pickupDate).getTime();
-        days = Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
-    }
+    const agreementToDate = getAgreementToDate(
+        contract?.pickupDate,
+        contract?.pickupTime,
+        contract?.dropoffDate,
+        contract?.dropoffTime
+    );
+    const toDate = agreementToDate ? formatDate(agreementToDate, '') : '';
+    const days = getAgreementRentalDays(
+        contract?.pickupDate,
+        contract?.pickupTime,
+        contract?.dropoffDate,
+        contract?.dropoffTime
+    );
     const secondPartyName = contract?.customer?.name || contract?.customer?.companyName || '';
     const secondPartyAddress = contract?.customer?.address || '';
     const secondPartyNic = contract?.customer?.nicOrPassport || contract?.customer?.passportNo || '';

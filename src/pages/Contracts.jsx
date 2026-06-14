@@ -5,6 +5,11 @@ import { printHtmlDocument } from '@/lib/printHtmlDocument';
 import { partitionInvoiceLinesForAdvance } from '@/lib/invoiceLineTable';
 import { cn } from '@/lib/utils';
 import { restoreDiscountFromRecord, discountPayloadFields } from '@/utils/discount';
+import {
+    combineDateAndTime,
+    computeRentalDayUnits,
+    formatRentalPeriod,
+} from '@/utils/rentalPeriod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TimeInput24 } from '@/components/ui/time-input-24';
@@ -126,76 +131,6 @@ const ImageViewDialog = ({ src, open, onOpenChange }) => (
         </DialogContent>
     </Dialog>
 );
-
-const parseTimeTo24h = (timeStr) => {
-    if (!timeStr || typeof timeStr !== 'string') return null;
-    const t = timeStr.trim().toUpperCase();
-
-    const m24 = /^(\d{1,2}):(\d{2})$/.exec(t);
-    if (m24) {
-        const h = Number(m24[1]);
-        const min = Number(m24[2]);
-        if (h >= 0 && h <= 23 && min >= 0 && min <= 59) return { h, min };
-    }
-
-    const m12 = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/.exec(t);
-    if (m12) {
-        let h = Number(m12[1]);
-        const min = Number(m12[2]);
-        const ap = m12[3];
-        if (h < 1 || h > 12 || min < 0 || min > 59) return null;
-        if (ap === 'PM' && h !== 12) h += 12;
-        if (ap === 'AM' && h === 12) h = 0;
-        return { h, min };
-    }
-
-    return null;
-};
-
-const combineDateAndTime = (dateStr, timeStr) => {
-    if (!dateStr) return null;
-    let d;
-    if (dateStr instanceof Date) {
-        d = dateStr;
-    } else {
-        d = new Date(dateStr);
-    }
-
-    if (isNaN(d.getTime())) return null;
-
-    const hhmm = parseTimeTo24h(timeStr);
-    if (!hhmm) return null;
-
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hhmm.h, hhmm.min, 0, 0);
-};
-
-const MS_PER_RENTAL_DAY = 24 * 60 * 60 * 1000;
-
-function computeRentalDayUnits(pickupDateYmd, pickupTimeHm, dropoffDateYmd, dropoffTimeHm) {
-    const start = combineDateAndTime(pickupDateYmd, pickupTimeHm);
-    const end = combineDateAndTime(dropoffDateYmd, dropoffTimeHm);
-    if (!start || !end) return 0;
-    const ms = end.getTime() - start.getTime();
-    if (!Number.isFinite(ms) || ms <= 0) return 0;
-    return ms / MS_PER_RENTAL_DAY;
-}
-
-function formatRentalPeriod(pickupDateYmd, pickupTimeHm, dropoffDateYmd, dropoffTimeHm) {
-    const start = combineDateAndTime(pickupDateYmd, pickupTimeHm);
-    const end = combineDateAndTime(dropoffDateYmd, dropoffTimeHm);
-    if (!start || !end) return '—';
-    const ms = end.getTime() - start.getTime();
-    if (!Number.isFinite(ms) || ms <= 0) return '—';
-    const totalMinutes = Math.floor(ms / 60000);
-    const days = Math.floor(totalMinutes / (24 * 60));
-    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-    const minutes = totalMinutes % 60;
-    const parts = [];
-    if (days) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
-    if (hours) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
-    if (minutes) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
-    return parts.length ? parts.join(', ') : 'Less than 1 minute';
-}
 
 const Contracts = () => {
     const [contracts, setContracts] = useState([]);
@@ -1272,7 +1207,7 @@ const Contracts = () => {
                 formData.dropoffDate,
                 formData.dropoffTime
             );
-            if (units > 0) {
+            if (units != null && units > 0) {
                 const dailyKm = Number(formData.dailyKmLimit) || 100;
                 const calculatedAllocated = Math.round(dailyKm * units);
                 setFormData((prev) => ({
