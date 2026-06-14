@@ -223,6 +223,7 @@ const Contracts = () => {
     const [agreement, setAgreement] = useState(null);
     const [invoiceLoading, setInvoiceLoading] = useState(false);
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+    const [invoiceDialogType, setInvoiceDialogType] = useState('UPFRONT');
     const [receiptSuccessOpen, setReceiptSuccessOpen] = useState(false);
     const [currentSavedReceipt, setCurrentSavedReceipt] = useState(null);
     const [copiedReceiptLink, setCopiedReceiptLink] = useState(false);
@@ -1088,7 +1089,7 @@ const Contracts = () => {
             setInvoiceLoading(true);
             const { data } = await api.post(`/invoices/contract/${editingId}/upfront`, {});
             setUpfrontInvoice(data);
-            if (openDialog) setInvoiceDialogOpen(true);
+            if (openDialog) openInvoiceDialog('UPFRONT');
         } catch (error) {
             console.error('Failed to create invoice:', error);
             alert(error.response?.data?.message || 'Failed to create invoice');
@@ -1164,7 +1165,7 @@ const Contracts = () => {
                 appliedDailyRate: formData.appliedDailyRate
             });
             setReturnInvoice(data);
-            if (openDialog) setInvoiceDialogOpen(true);
+            if (openDialog) openInvoiceDialog('RETURN');
         } catch (error) {
             console.error('Failed to create return invoice:', error);
             alert(error.response?.data?.message || 'Failed to create return invoice');
@@ -1390,6 +1391,139 @@ const Contracts = () => {
         });
     }, [baseDailyRate, discountType, discountValue, editingId, formData.status]);
 
+    const showExchangeTab = editingId && ['IN_PROGRESS', 'RETURN', 'COMPLETED'].includes(formData.status);
+    const isReturnSettlementStatus = formData.status === 'RETURN' || formData.status === 'COMPLETED';
+
+    const openInvoiceDialog = (type = 'UPFRONT') => {
+        setInvoiceDialogType(type);
+        setInvoiceDialogOpen(true);
+    };
+
+    const renderInvoiceShareButtons = (invoice, { onRefresh, dialogType = 'UPFRONT' } = {}) => (
+        <>
+            <Button
+                type="button"
+                variant="secondary"
+                disabled={invoiceLoading}
+                onClick={() => openInvoiceDialog(dialogType)}
+                className="flex-1 min-w-[140px] flex items-center justify-center gap-2"
+            >
+                <Eye className="w-4 h-4 shrink-0" />
+                <span className="truncate">View ({invoice.invoiceNo})</span>
+            </Button>
+            <Button
+                type="button"
+                variant="outline"
+                className="border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 flex items-center gap-2"
+                onClick={() => {
+                    const rawPhone = pickCustomerWhatsAppPhone(invoice.customer);
+                    const phone = normalizePhoneForWhatsApp(rawPhone);
+                    if (!phone) { alert('No mobile number found.'); return; }
+                    const shareUrl = invoice.shareUrl;
+                    if (!shareUrl) { alert('Link not ready.'); return; }
+                    const message = buildInvoiceWhatsAppMessage(invoice, shareUrl);
+                    openWhatsAppWeb(phone, message);
+                }}
+            >
+                <MessageCircle className="w-4 h-4" /> WhatsApp
+            </Button>
+            <Button
+                type="button"
+                variant="outline"
+                className="border-blue-500 text-blue-500 hover:bg-blue-50 flex items-center gap-2"
+                onClick={() => {
+                    if (invoice?.shareUrl) {
+                        window.open(invoice.shareUrl, '_blank');
+                    }
+                }}
+            >
+                <Printer className="w-4 h-4" /> Print
+            </Button>
+            {onRefresh && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={invoiceLoading}
+                    onClick={onRefresh}
+                    className="w-full sm:w-auto"
+                >
+                    Refresh
+                </Button>
+            )}
+        </>
+    );
+
+    const renderReturnSettlementCard = ({ allowCreate = true } = {}) => (
+        <div className="rounded-xl border border-border/60 bg-background p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground">Return settlement invoice</p>
+            <div className="flex flex-wrap gap-2">
+                {!returnInvoice ? (
+                    allowCreate ? (
+                        <Button
+                            disabled={isReadOnly || invoiceLoading}
+                            onClick={() => createReturnInvoice()}
+                            className="w-full sm:w-auto bg-primary text-primary-foreground"
+                        >
+                            Create Return Invoice
+                        </Button>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">No return invoice on file.</p>
+                    )
+                ) : (
+                    renderInvoiceShareButtons(returnInvoice, {
+                        onRefresh: allowCreate ? () => createReturnInvoice({ openDialog: false }) : undefined,
+                        dialogType: 'RETURN',
+                    })
+                )}
+            </div>
+        </div>
+    );
+
+    const renderUpfrontInvoiceCard = ({ allowCreate = false } = {}) => (
+        <div className="rounded-xl border border-border/60 bg-background p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground">Upfront invoice</p>
+            <div className="flex flex-wrap gap-2">
+                {!upfrontInvoice ? (
+                    allowCreate ? (
+                        <Button
+                            disabled={isReadOnly || invoiceLoading}
+                            onClick={() => createUpfrontInvoice()}
+                            className="w-full sm:w-auto bg-primary text-primary-foreground"
+                        >
+                            Create Upfront Invoice
+                        </Button>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">No upfront invoice on file.</p>
+                    )
+                ) : (
+                    renderInvoiceShareButtons(upfrontInvoice, {
+                        onRefresh: () => createUpfrontInvoice({ openDialog: false }),
+                        dialogType: 'UPFRONT',
+                    })
+                )}
+            </div>
+        </div>
+    );
+
+    const renderSettlementDocuments = () => {
+        if (!editingId || !isReturnSettlementStatus) return null;
+        const allowReturnCreate = formData.status === 'RETURN';
+        return (
+            <div className="pt-4 space-y-3 border-t border-primary/10">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    {formData.status === 'COMPLETED' ? 'Contract documents' : 'Return settlement'}
+                </p>
+                <div className={cn(
+                    'grid gap-3',
+                    formData.status === 'COMPLETED' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
+                )}>
+                    {formData.status === 'COMPLETED' && renderUpfrontInvoiceCard({ allowCreate: false })}
+                    {renderReturnSettlementCard({ allowCreate: allowReturnCreate })}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="p-6 space-y-6">
             <ImageViewDialog src={viewingImage} open={!!viewingImage} onOpenChange={(open) => !open && setViewingImage(null)} />
@@ -1463,7 +1597,7 @@ const Contracts = () => {
                 setIsOpen(open);
                 if (!open) setSearchParams({});
             }}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
                     <DialogHeader>
                         <DialogTitle>
                             {editingId ? "Edit Contract" : "Create New Contract"}
@@ -1479,10 +1613,32 @@ const Contracts = () => {
                     </DialogHeader>
 
                     <Tabs defaultValue="details" className="w-full">
-                        <TabsList className="flex w-full">
-                            <TabsTrigger value="details" className="flex-1">Contract Details</TabsTrigger>
-                            {editingId && formData.status === 'IN_PROGRESS' && <TabsTrigger value="exchange" className="flex-1">Vehicle Exchange</TabsTrigger>}
-                            <TabsTrigger value="checklist" className="flex-1">Vehicle Checklist</TabsTrigger>
+                        <TabsList
+                            className={cn(
+                                'grid w-full h-auto p-1.5 gap-1.5 bg-muted/50',
+                                showExchangeTab ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'
+                            )}
+                        >
+                            <TabsTrigger
+                                value="details"
+                                className="min-w-0 h-auto whitespace-normal text-center leading-snug py-2.5 px-2 text-xs sm:text-sm"
+                            >
+                                Contract Details
+                            </TabsTrigger>
+                            {showExchangeTab && (
+                                <TabsTrigger
+                                    value="exchange"
+                                    className="min-w-0 h-auto whitespace-normal text-center leading-snug py-2.5 px-2 text-xs sm:text-sm"
+                                >
+                                    Vehicle Exchange
+                                </TabsTrigger>
+                            )}
+                            <TabsTrigger
+                                value="checklist"
+                                className="min-w-0 h-auto whitespace-normal text-center leading-snug py-2.5 px-2 text-xs sm:text-sm"
+                            >
+                                Vehicle Checklist
+                            </TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="details" className="space-y-4 pt-4">
@@ -2338,7 +2494,7 @@ const Contracts = () => {
                             {/* Upfront Payment Summary */}
                             <div className="mt-6 border-2 border-primary/20 rounded-2xl p-6 bg-primary/5 space-y-4">
                                 <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                                    <DollarSign className="w-4 h-4" /> {formData.status === 'RETURN' ? 'Return Payment Summary' : 'Upfront Payment Summary'}
+                                    <DollarSign className="w-4 h-4" /> {isReturnSettlementStatus ? 'Return Payment Summary' : 'Upfront Payment Summary'}
                                 </h4>
                                 {(() => {
                                     const rate = Number(formData.appliedDailyRate) || 0;
@@ -2444,7 +2600,7 @@ const Contracts = () => {
                                         : 0;
                                     const balanceDueNow = Math.max(0, totalUpfront - advanceDeductedNow);
 
-                                        if (formData.status === 'RETURN') {
+                                        if (isReturnSettlementStatus) {
                                             const damageChargeAmount = formData.hasDamageCharge
                                                 ? Number(formData.damageCharge) || 0
                                                 : 0;
@@ -2537,28 +2693,7 @@ const Contracts = () => {
                                                         </div>
                                                     )}
 
-                                                    {editingId && (
-                                                        <div className="pt-4 flex flex-col sm:flex-row gap-3">
-                                                            {!returnInvoice ? (
-                                                                <Button
-                                                                    disabled={isReadOnly || invoiceLoading}
-                                                                    onClick={() => createReturnInvoice()}
-                                                                    className="bg-primary text-primary-foreground"
-                                                                >
-                                                                    Create Return Invoice
-                                                                </Button>
-                                                            ) : (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="secondary"
-                                                                    disabled={invoiceLoading}
-                                                                    onClick={() => setInvoiceDialogOpen(true)}
-                                                                >
-                                                                    View Return Invoice ({returnInvoice.invoiceNo})
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                    {renderSettlementDocuments()}
                                                 </div>
                                             );
                                         }
@@ -2767,153 +2902,117 @@ const Contracts = () => {
                                                 })()
                                             )}
                                             {editingId && formData.status === 'IN_PROGRESS' && (
-                                                <div className="pt-4 flex flex-col sm:flex-row gap-3">
-                                                    {!upfrontInvoice ? (
-                                                        <Button
-                                                            disabled={isReadOnly || invoiceLoading}
-                                                            onClick={() => createUpfrontInvoice()}
-                                                            className="bg-primary text-primary-foreground"
-                                                        >
-                                                            Create Upfront Invoice
-                                                        </Button>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="secondary"
-                                                                disabled={invoiceLoading}
-                                                                onClick={() => setInvoiceDialogOpen(true)}
-                                                                className="flex items-center gap-2"
-                                                            >
-                                                                <Eye className="w-4 h-4" /> View Invoice ({upfrontInvoice.invoiceNo})
-                                                            </Button>
-
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                className="border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    const rawPhone = pickCustomerWhatsAppPhone(upfrontInvoice.customer);
-                                                                    const phone = normalizePhoneForWhatsApp(rawPhone);
-                                                                    if (!phone) { alert('No mobile number found.'); return; }
-                                                                    const shareUrl = upfrontInvoice.shareUrl;
-                                                                    if (!shareUrl) { alert('Link not ready.'); return; }
-                                                                    const message = buildInvoiceWhatsAppMessage(upfrontInvoice, shareUrl);
-                                                                    openWhatsAppWeb(phone, message);
-                                                                }}
-                                                            >
-                                                                <MessageCircle className="w-4 h-4" /> WhatsApp
-                                                            </Button>
-
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                className="border-blue-500 text-blue-500 hover:bg-blue-50 flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    if (upfrontInvoice?.shareUrl) {
-                                                                        window.open(upfrontInvoice.shareUrl, '_blank');
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Printer className="w-4 h-4" /> Print
-                                                            </Button>
+                                                <div className="pt-4 space-y-3 border-t border-primary/10">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                        Handover documents
+                                                    </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div className="rounded-xl border border-border/60 bg-background p-3 space-y-2">
+                                                            <p className="text-xs font-semibold text-foreground">Upfront invoice</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {!upfrontInvoice ? (
+                                                                    <Button
+                                                                        disabled={isReadOnly || invoiceLoading}
+                                                                        onClick={() => createUpfrontInvoice()}
+                                                                        className="w-full sm:w-auto bg-primary text-primary-foreground"
+                                                                    >
+                                                                        Create Upfront Invoice
+                                                                    </Button>
+                                                                ) : (
+                                                                    <>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="secondary"
+                                                                            disabled={invoiceLoading}
+                                                                            onClick={() => openInvoiceDialog('UPFRONT')}
+                                                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2"
+                                                                        >
+                                                                            <Eye className="w-4 h-4 shrink-0" />
+                                                                            <span className="truncate">View ({upfrontInvoice.invoiceNo})</span>
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            className="border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 flex items-center gap-2"
+                                                                            onClick={() => {
+                                                                                const rawPhone = pickCustomerWhatsAppPhone(upfrontInvoice.customer);
+                                                                                const phone = normalizePhoneForWhatsApp(rawPhone);
+                                                                                if (!phone) { alert('No mobile number found.'); return; }
+                                                                                const shareUrl = upfrontInvoice.shareUrl;
+                                                                                if (!shareUrl) { alert('Link not ready.'); return; }
+                                                                                const message = buildInvoiceWhatsAppMessage(upfrontInvoice, shareUrl);
+                                                                                openWhatsAppWeb(phone, message);
+                                                                            }}
+                                                                        >
+                                                                            <MessageCircle className="w-4 h-4" /> WhatsApp
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            className="border-blue-500 text-blue-500 hover:bg-blue-50 flex items-center gap-2"
+                                                                            onClick={() => {
+                                                                                if (upfrontInvoice?.shareUrl) {
+                                                                                    window.open(upfrontInvoice.shareUrl, '_blank');
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Printer className="w-4 h-4" /> Print
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    disabled={invoiceLoading}
+                                                                    onClick={() => createUpfrontInvoice({ openDialog: false })}
+                                                                    className="w-full sm:w-auto"
+                                                                >
+                                                                    Refresh Invoice
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        disabled={invoiceLoading}
-                                                        onClick={() => createUpfrontInvoice({ openDialog: false })}
-                                                    >
-                                                        Refresh Invoice
-                                                    </Button>
-                                                    {!agreement ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="default"
-                                                            disabled={isReadOnly || invoiceLoading}
-                                                            onClick={createAgreement}
-                                                        >
-                                                            Generate Agreement
-                                                        </Button>
-                                                    ) : (
-                                                        <Button
-                                                            type="button"
-                                                            variant="secondary"
-                                                            disabled={invoiceLoading}
-                                                            onClick={() => openAgreement('view')}
-                                                        >
-                                                            View Agreement ({agreement.agreementNo})
-                                                        </Button>
-                                                    )}
-                                                    {agreement && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            disabled={invoiceLoading}
-                                                            onClick={() => openAgreement('download')}
-                                                        >
-                                                            Download Agreement PDF
-                                                        </Button>
-                                                    )}
+
+                                                        <div className="rounded-xl border border-border/60 bg-background p-3 space-y-2">
+                                                            <p className="text-xs font-semibold text-foreground">Rental agreement</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {!agreement ? (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="default"
+                                                                        disabled={isReadOnly || invoiceLoading}
+                                                                        onClick={createAgreement}
+                                                                        className="w-full sm:w-auto"
+                                                                    >
+                                                                        Generate Agreement
+                                                                    </Button>
+                                                                ) : (
+                                                                    <>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="secondary"
+                                                                            disabled={invoiceLoading}
+                                                                            onClick={() => openAgreement('view')}
+                                                                            className="flex-1 min-w-[140px]"
+                                                                        >
+                                                                            View ({agreement.agreementNo})
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            disabled={invoiceLoading}
+                                                                            onClick={() => openAgreement('download')}
+                                                                            className="w-full sm:w-auto"
+                                                                        >
+                                                                            Download PDF
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
 
-                                            {editingId && formData.status === 'RETURN' && (
-                                                <div className="pt-4 flex flex-col sm:flex-row gap-3">
-                                                    {!returnInvoice ? (
-                                                        <Button
-                                                            disabled={isReadOnly || invoiceLoading}
-                                                            onClick={() => createReturnInvoice()}
-                                                            className="bg-primary text-primary-foreground"
-                                                        >
-                                                            Create Return Invoice
-                                                        </Button>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="secondary"
-                                                                disabled={invoiceLoading}
-                                                                onClick={() => setInvoiceDialogOpen(true)}
-                                                                className="flex items-center gap-2"
-                                                            >
-                                                                <Eye className="w-4 h-4" /> View Invoice ({returnInvoice.invoiceNo})
-                                                            </Button>
-
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                className="border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    const rawPhone = pickCustomerWhatsAppPhone(returnInvoice.customer);
-                                                                    const phone = normalizePhoneForWhatsApp(rawPhone);
-                                                                    if (!phone) { alert('No mobile number found.'); return; }
-                                                                    const shareUrl = returnInvoice.shareUrl;
-                                                                    if (!shareUrl) { alert('Link not ready.'); return; }
-                                                                    const message = buildInvoiceWhatsAppMessage(returnInvoice, shareUrl);
-                                                                    openWhatsAppWeb(phone, message);
-                                                                }}
-                                                            >
-                                                                <MessageCircle className="w-4 h-4" /> WhatsApp
-                                                            </Button>
-
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                className="border-blue-500 text-blue-500 hover:bg-blue-50 flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    if (returnInvoice?.shareUrl) {
-                                                                        window.open(returnInvoice.shareUrl, '_blank');
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Printer className="w-4 h-4" /> Print
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })()}
@@ -2965,9 +3064,19 @@ const Contracts = () => {
                             )}
 
                             <Tabs defaultValue="pickup" className="w-full">
-                                <TabsList className="w-full bg-muted/20">
-                                    <TabsTrigger value="pickup" className="flex-1 data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-900">Pickup Checklist</TabsTrigger>
-                                    <TabsTrigger value="dropoff" className="flex-1 data-[state=active]:bg-rose-100 data-[state=active]:text-rose-900">Drop Off Checklist</TabsTrigger>
+                                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto gap-1.5 p-1.5 bg-muted/20">
+                                    <TabsTrigger
+                                        value="pickup"
+                                        className="min-w-0 h-auto whitespace-normal text-center py-2.5 data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-900"
+                                    >
+                                        Pickup Checklist
+                                    </TabsTrigger>
+                                    <TabsTrigger
+                                        value="dropoff"
+                                        className="min-w-0 h-auto whitespace-normal text-center py-2.5 data-[state=active]:bg-rose-100 data-[state=active]:text-rose-900"
+                                    >
+                                        Drop Off Checklist
+                                    </TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="pickup" className="space-y-4 pt-4">
@@ -3433,7 +3542,7 @@ const Contracts = () => {
             <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                 <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl flex flex-col max-h-[90dvh]">
                     {(() => {
-                        const inv = (formData.status === 'RETURN' ? returnInvoice : upfrontInvoice);
+                        const inv = invoiceDialogType === 'RETURN' ? returnInvoice : upfrontInvoice;
                         if (!inv) return (
                             <div className="p-12 text-center flex flex-col items-center gap-4">
                                 <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center">
