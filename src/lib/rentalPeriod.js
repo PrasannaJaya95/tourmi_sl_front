@@ -7,6 +7,19 @@ const MS_PER_RENTAL_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_MINUTE = 60 * 1000;
 const WHOLE_DAY_TOLERANCE_MS = MS_PER_MINUTE;
 
+function normalizeRentalMilliseconds(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return ms;
+    const fullDays = Math.floor(ms / MS_PER_RENTAL_DAY);
+    const remainder = ms - fullDays * MS_PER_RENTAL_DAY;
+    if (remainder <= WHOLE_DAY_TOLERANCE_MS) {
+        return fullDays * MS_PER_RENTAL_DAY;
+    }
+    if (remainder >= MS_PER_RENTAL_DAY - WHOLE_DAY_TOLERANCE_MS) {
+        return (fullDays + 1) * MS_PER_RENTAL_DAY;
+    }
+    return ms;
+}
+
 function parseTimeTo24h(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return null;
     const t = timeStr.trim().toUpperCase();
@@ -33,15 +46,27 @@ function parseTimeTo24h(timeStr) {
     return null;
 }
 
+function parseYmdParts(dateVal) {
+    if (typeof dateVal === 'string') {
+        const m = dateVal.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) {
+            return { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) };
+        }
+    }
+    const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+    if (!Number.isFinite(d.getTime())) return null;
+    return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() };
+}
+
 function combineDateAndTime(dateVal, timeStr) {
     if (!dateVal) return null;
-    const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
-    if (isNaN(d.getTime())) return null;
+    const parts = parseYmdParts(dateVal);
+    if (!parts) return null;
 
     const parsed = parseTimeTo24h(timeStr);
     if (!parsed) return null;
 
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), parsed.h, parsed.min, 0, 0);
+    return new Date(parts.y, parts.mo - 1, parts.d, parsed.h, parsed.min, 0, 0);
 }
 
 function coerceDate(value) {
@@ -60,25 +85,32 @@ function isEndOfDayTime(timeStr) {
     return Boolean(p && p.h === 23 && p.min === 59);
 }
 
+function rentalMilliseconds(pickupDate, pickupTime, dropoffDate, dropoffTime) {
+    const start = combineDateAndTime(pickupDate, pickupTime);
+    const end = combineDateAndTime(dropoffDate, dropoffTime);
+    if (!start || !end) return null;
+    let ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    if (isEndOfDayTime(dropoffTime)) {
+        ms += MS_PER_MINUTE;
+    }
+    return ms;
+}
+
 function isWholeDayUnits(units) {
     if (!Number.isFinite(units)) return false;
-    return Math.abs(units - Math.round(units)) * MS_PER_RENTAL_DAY <= WHOLE_DAY_TOLERANCE_MS;
+    return Math.abs(units - Math.round(units)) < 1e-9;
 }
 
 function normalizeRentalDayUnits(rawUnits) {
     if (!Number.isFinite(rawUnits) || rawUnits <= 0) return rawUnits;
-    const rounded = Math.round(rawUnits);
-    const diffMs = Math.abs(rawUnits - rounded) * MS_PER_RENTAL_DAY;
-    if (diffMs <= WHOLE_DAY_TOLERANCE_MS) return rounded;
-    return rawUnits;
+    const ms = normalizeRentalMilliseconds(rawUnits * MS_PER_RENTAL_DAY);
+    return ms / MS_PER_RENTAL_DAY;
 }
 
 function rawRentalDayUnits(pickupDate, pickupTime, dropoffDate, dropoffTime) {
-    const start = combineDateAndTime(pickupDate, pickupTime);
-    const end = combineDateAndTime(dropoffDate, dropoffTime);
-    if (!start || !end) return null;
-    const ms = end.getTime() - start.getTime();
-    if (!Number.isFinite(ms) || ms <= 0) return null;
+    const ms = rentalMilliseconds(pickupDate, pickupTime, dropoffDate, dropoffTime);
+    if (ms == null) return null;
     return ms / MS_PER_RENTAL_DAY;
 }
 
@@ -89,19 +121,17 @@ function computeRentalDayUnits(pickupDate, pickupTime, dropoffDate, dropoffTime)
 }
 
 function formatRentalPeriod(pickupDate, pickupTime, dropoffDate, dropoffTime) {
-    const start = combineDateAndTime(pickupDate, pickupTime);
-    const end = combineDateAndTime(dropoffDate, dropoffTime);
-    if (!start || !end) return null;
-    const ms = end.getTime() - start.getTime();
-    if (!Number.isFinite(ms) || ms <= 0) return null;
+    const ms = rentalMilliseconds(pickupDate, pickupTime, dropoffDate, dropoffTime);
+    if (ms == null) return null;
 
-    const units = normalizeRentalDayUnits(ms / MS_PER_RENTAL_DAY);
+    const normMs = normalizeRentalMilliseconds(ms);
+    const units = normMs / MS_PER_RENTAL_DAY;
     if (isWholeDayUnits(units)) {
         const n = Math.round(units);
         return n === 1 ? '1 day' : `${n} days`;
     }
 
-    const totalMinutes = Math.floor(ms / MS_PER_MINUTE);
+    const totalMinutes = Math.floor(normMs / MS_PER_MINUTE);
     const days = Math.floor(totalMinutes / (24 * 60));
     const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
     const minutes = totalMinutes % 60;
@@ -150,4 +180,5 @@ module.exports = {
     isEndOfDayTime,
     isWholeDayUnits,
     normalizeRentalDayUnits,
+    normalizeRentalMilliseconds,
 };
