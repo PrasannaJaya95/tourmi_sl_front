@@ -1,24 +1,13 @@
 const prisma = require('../lib/prisma');
 const billingService = require('../services/billing.service');
 const jwt = require('jsonwebtoken');
+const { getPublicApiBaseUrl } = require('../lib/publicApiUrl');
 
 const BILL_SHARE_TOKEN_TTL = '7d';
 
-function getBackendBaseUrlFromReq(req) {
-    const origin = req.headers.origin || req.headers.referer;
-    if (!origin) return 'http://localhost:5000';
-    try {
-        const u = new URL(origin);
-        u.port = '5000';
-        return u.origin;
-    } catch {
-        return 'http://localhost:5000';
-    }
-}
-
 function buildVendorBillShareLink(req, billId) {
     const token = jwt.sign({ billId }, process.env.JWT_SECRET, { expiresIn: BILL_SHARE_TOKEN_TTL });
-    const backendBase = getBackendBaseUrlFromReq(req);
+    const backendBase = getPublicApiBaseUrl(req);
     return `${backendBase}/api/vendor-bills/share/${billId}?token=${encodeURIComponent(token)}`;
 }
 

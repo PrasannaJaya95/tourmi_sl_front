@@ -11,6 +11,7 @@ const {
     computeRentalDayUnits,
     formatRentalPeriod,
 } = require('../lib/rentalPeriod');
+const { getPublicApiBaseUrl } = require('../lib/publicApiUrl');
 
 const INVOICE_SEQ_KEY = 'invoice_sequence';
 const CREDIT_NOTE_SEQ_KEY = 'credit_note_sequence';
@@ -31,33 +32,9 @@ function buildCreditNoteNo(sequence, date = new Date()) {
     return `CN-${year}-${pad(sequence, 5)}`;
 }
 
-function getBackendBaseUrlFromReq(req) {
-    // 1. Check for explicit environment variable first
-    if (process.env.BACKEND_URL) {
-        return process.env.BACKEND_URL.replace(/\/$/, '');
-    }
-
-    // 2. Fallback to request host/origin
-    const protocol = req.protocol || 'https';
-    const host = req.headers.host;
-    
-    if (host) {
-        return `${protocol}://${host}`;
-    }
-
-    // 3. Absolute fallback
-    const origin = req.headers.origin || req.headers.referer;
-    if (!origin) return 'http://localhost:5000';
-    try {
-        return new URL(origin).origin;
-    } catch {
-        return 'http://localhost:5000';
-    }
-}
-
 function buildInvoiceShareLink(req, invoiceId) {
     const token = jwt.sign({ invoiceId }, process.env.JWT_SECRET, { expiresIn: INVOICE_SHARE_TOKEN_TTL });
-    const backendBase = getBackendBaseUrlFromReq(req);
+    const backendBase = getPublicApiBaseUrl(req);
     return `${backendBase}/api/invoices/share/${invoiceId}?token=${encodeURIComponent(token)}`;
 }
 
@@ -294,6 +271,8 @@ function buildInvoiceTableBodyRows(lines, amountCell, escapeHtml) {
 function renderInvoiceHtml(invoice, company = { name: '', address: '', logoUrl: null, contactNumber: '', whatsappNumber: '' }) {
     const lines = Array.isArray(invoice.lines) ? invoice.lines : [];
     const isReturn = String(invoice.type || '').toUpperCase() === 'RETURN';
+    const isUpfront = String(invoice.type || '').toUpperCase() === 'UPFRONT';
+    const docKindLabel = isReturn ? 'Return Settlement' : isUpfront ? 'Proforma Invoice' : 'Invoice';
     const total = Number(invoice.total || 0);
     const settlementLabel = isReturn
         ? (total < 0 ? 'Customer Need to Pay' : 'Company Have to Refund')
@@ -357,7 +336,7 @@ function renderInvoiceHtml(invoice, company = { name: '', address: '', logoUrl: 
       ${brandSection}
       <div class="doc-headline">
         <div>
-          <div class="doc-kind">Invoice</div>
+          <div class="doc-kind">${escapeHtml(docKindLabel)}</div>
           <div class="doc-main-id">${escapeHtml(invoice.invoiceNo || '')}</div>
           <div class="doc-meta">Issued <b>${invoice.createdAt ? escapeHtml(formatDateTime(invoice.createdAt)) : ''}</b> · Contract <b>${escapeHtml(contractNo)}</b></div>
         </div>

@@ -97,7 +97,7 @@ function buildInvoiceWhatsAppMessage(invoice, shareUrl) {
     return [
         `Hello ${name},`,
         '',
-        `Your upfront invoice *${no}* is ready (contract ${contract}).`,
+        `Your Proforma Invoice *${no}* is ready (contract ${contract}).`,
         `Invoice total (LKR): *${amount.toLocaleString()}*`,
         '',
         `View or print: ${shareUrl}`,
@@ -1111,8 +1111,23 @@ const Contracts = () => {
 
     const createAgreement = async () => {
         if (!editingId) return;
+        if (startOdoBelowLatest) {
+            alert(
+                `Start odometer cannot be below the vehicle's latest reading (${selectedVehicleLastOdo} km). Update the value, then generate the agreement.`
+            );
+            return;
+        }
         try {
             setInvoiceLoading(true);
+            const toNum = (val) => (val === '' || val === null || val === undefined) ? 0 : Number(val);
+            // Persist handover odometer before the agreement snapshot is taken.
+            await api.put(`/contracts/${editingId}`, {
+                status: formData.status,
+                customerId: formData.customerId,
+                vehicleId: formData.vehicleId,
+                startOdometer: toNum(formData.startOdometer),
+                fuelLevel: formData.fuelLevel,
+            });
             const { data } = await api.post(`/agreements/contract/${editingId}/generate`, {});
             setAgreement(data);
         } catch (error) {
@@ -1416,7 +1431,7 @@ const Contracts = () => {
 
     const renderUpfrontInvoiceCard = ({ allowCreate = false } = {}) => (
         <div className="rounded-xl border border-border/60 bg-background p-3 space-y-2">
-            <p className="text-xs font-semibold text-foreground">Upfront invoice</p>
+            <p className="text-xs font-semibold text-foreground">Proforma Invoice</p>
             <div className="flex flex-wrap gap-2">
                 {!upfrontInvoice ? (
                     allowCreate ? (
@@ -1425,10 +1440,10 @@ const Contracts = () => {
                             onClick={() => createUpfrontInvoice()}
                             className="w-full sm:w-auto bg-primary text-primary-foreground"
                         >
-                            Create Upfront Invoice
+                            Create Proforma Invoice
                         </Button>
                     ) : (
-                        <p className="text-xs text-muted-foreground">No upfront invoice on file.</p>
+                        <p className="text-xs text-muted-foreground">No Proforma Invoice on file.</p>
                     )
                 ) : (
                     renderInvoiceShareButtons(upfrontInvoice, {
@@ -2843,7 +2858,7 @@ const Contracts = () => {
                                                     </p>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                         <div className="rounded-xl border border-border/60 bg-background p-3 space-y-2">
-                                                            <p className="text-xs font-semibold text-foreground">Upfront invoice</p>
+                                                            <p className="text-xs font-semibold text-foreground">Proforma Invoice</p>
                                                             <div className="flex flex-wrap gap-2">
                                                                 {!upfrontInvoice ? (
                                                                     <Button
@@ -2851,7 +2866,7 @@ const Contracts = () => {
                                                                         onClick={() => createUpfrontInvoice()}
                                                                         className="w-full sm:w-auto bg-primary text-primary-foreground"
                                                                     >
-                                                                        Create Upfront Invoice
+                                                                        Create Proforma Invoice
                                                                     </Button>
                                                                 ) : (
                                                                     <>
@@ -2930,6 +2945,15 @@ const Contracts = () => {
                                                                             className="flex-1 min-w-[140px]"
                                                                         >
                                                                             View ({agreement.agreementNo})
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            disabled={isReadOnly || invoiceLoading}
+                                                                            onClick={createAgreement}
+                                                                            className="w-full sm:w-auto"
+                                                                        >
+                                                                            Refresh Agreement
                                                                         </Button>
                                                                         <Button
                                                                             type="button"
@@ -3492,7 +3516,7 @@ const Contracts = () => {
                         );
 
                         const isReturn = String(inv.type || '').toUpperCase() === 'RETURN';
-                        const title = isReturn ? 'Return Settlement' : 'Upfront Invoice';
+                        const title = isReturn ? 'Return Settlement' : 'Proforma Invoice';
                         const total = Number(inv.total || 0);
 
                         return (

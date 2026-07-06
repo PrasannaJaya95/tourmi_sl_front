@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const { DOCUMENT_PRINT_STYLES } = require('../lib/documentPrintStyles');
 const { formatDateTime: formatDateTimeShared } = require('../lib/dates');
+const { getPublicApiBaseUrl } = require('../lib/publicApiUrl');
 
 const QUOTATION_SHARE_TOKEN_TTL = '30d';
 const SHARE_TOKEN_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'; // no ambiguous 0/O/1/l
@@ -58,30 +59,12 @@ async function allocateNewShareToken(db) {
     throw new Error('Failed to allocate share token after multiple attempts');
 }
 
-function getBackendBaseUrlFromReq(req) {
-    if (process.env.BACKEND_URL) {
-        return process.env.BACKEND_URL.replace(/\/$/, '');
-    }
-    const protocol = req.protocol || 'https';
-    const host = req.headers.host;
-    if (host) {
-        return `${protocol}://${host}`;
-    }
-    const origin = req.headers.origin || req.headers.referer;
-    if (!origin) return 'http://localhost:5000';
-    try {
-        return new URL(origin).origin;
-    } catch {
-        return 'http://localhost:5000';
-    }
-}
-
 function buildQuotationShareLinkJwtFallback(req, quotationId) {
     if (!process.env.JWT_SECRET) {
         throw new Error('JWT_SECRET is not configured');
     }
     const token = jwt.sign({ quotationId }, process.env.JWT_SECRET, { expiresIn: QUOTATION_SHARE_TOKEN_TTL });
-    const backendBase = getBackendBaseUrlFromReq(req);
+    const backendBase = getPublicApiBaseUrl(req);
     return `${backendBase}/api/quotations/share/${quotationId}?token=${encodeURIComponent(token)}`;
 }
 
@@ -90,7 +73,7 @@ async function buildQuotationShareLink(req, quotationId) {
     try {
         const shareToken = await ensureQuotationShareToken(quotationId);
         if (!shareToken) throw new Error('Quotation not found');
-        const backendBase = getBackendBaseUrlFromReq(req);
+        const backendBase = getPublicApiBaseUrl(req);
         return `${backendBase}/api/q/${shareToken}`;
     } catch (err) {
         console.warn('Short quotation share link unavailable, using JWT fallback:', err?.message || err);
@@ -138,6 +121,17 @@ function resolveLogoUrl(logoUrl, baseUrl) {
     return `${baseUrl}${logoUrl.startsWith('/') ? '' : '/'}${logoUrl}`;
 }
 
+/** Customer-facing quotation views: brand/model and specs only — no license plate. */
+function formatCustomerQuotationVehicle(vehicle) {
+    const title = `${vehicle?.vehicleModel?.brand?.name || ''} ${vehicle?.vehicleModel?.name || ''}`.trim() || 'Vehicle';
+    const details = [];
+    if (vehicle?.year) details.push(String(vehicle.year));
+    if (vehicle?.transmission) details.push(vehicle.transmission);
+    if (vehicle?.color) details.push(vehicle.color);
+    if (vehicle?.fleetCategory?.name) details.push(vehicle.fleetCategory.name);
+    return { title, subtitle: details.join(' · ') };
+}
+
 function renderSharedQuotationHtml(quotation, company, baseUrl) {
     const extraCharges = (() => {
         try {
@@ -149,7 +143,7 @@ function renderSharedQuotationHtml(quotation, company, baseUrl) {
     })();
 
     const vehicle = quotation.vehicle;
-    const vehLabel = `${vehicle?.vehicleModel?.brand?.name || ''} ${vehicle?.vehicleModel?.name || ''}`.trim();
+    const customerVehicle = formatCustomerQuotationVehicle(vehicle);
     const issueDate = new Date(quotation.issueDate);
     const validUntil = new Date(quotation.validUntil);
     const logoResolved = resolveLogoUrl(company.logoUrl, baseUrl);
@@ -219,8 +213,8 @@ function renderSharedQuotationHtml(quotation, company, baseUrl) {
         </div>
         <div class="doc-card">
           <div class="doc-card-label">Vehicle</div>
-          <div class="doc-card-value">${escapeHtml(vehicle?.licensePlate || '')}</div>
-          <div class="doc-card-sub">${escapeHtml(vehLabel)}</div>
+          <div class="doc-card-value">${escapeHtml(customerVehicle.title)}</div>
+          <div class="doc-card-sub">${escapeHtml(customerVehicle.subtitle)}</div>
         </div>
       </div>
 
@@ -461,7 +455,7 @@ exports.getQuotation = async (req, res) => {
 };
 
 const sharedQuotationInclude = {
-    vehicle: { include: { vehicleModel: { include: { brand: true } } } },
+    vehicle: { include: { vehicleModel: { include: { brand: true } }, fleetCategory: true } },
     customer: true,
 };
 
@@ -470,7 +464,7 @@ async function sendSharedQuotationPage(req, res, quotation) {
         return res.status(404).type('text/plain').send('Quotation not found');
     }
     const company = await getCompanyProfileFromSettings();
-    const baseUrl = getBackendBaseUrlFromReq(req);
+    const baseUrl = getPublicApiBaseUrl(req);
     res.type('text/html').send(renderSharedQuotationHtml(quotation, company, baseUrl));
 }
 

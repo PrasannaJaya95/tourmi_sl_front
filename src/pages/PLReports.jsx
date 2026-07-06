@@ -394,7 +394,7 @@ export default function PLReports() {
                             <CardContent className="p-8 pt-0">
                                 <div className="space-y-4">
                                     <div className="flex justify-between py-3 border-b border-border/50">
-                                        <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Upfront Invoice Income</span>
+                                        <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Proforma Invoice Income</span>
                                         <span className="font-black text-foreground">Rs. {Number(reportData.breakdownCards?.income?.upfront || 0).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between py-3 border-b border-border/50">

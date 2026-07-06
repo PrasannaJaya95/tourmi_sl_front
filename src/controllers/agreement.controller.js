@@ -8,7 +8,9 @@ const { formatDate } = require('../lib/dates');
 const {
     getAgreementToDate,
     getAgreementRentalDays,
+    computeRentalDayUnits,
 } = require('../lib/rentalPeriod');
+const { getPublicApiBaseUrl } = require('../lib/publicApiUrl');
 
 const AGREEMENT_SEQ_KEY = 'agreement_sequence';
 const AGREEMENT_SHARE_TOKEN_TTL = '7d';
@@ -79,17 +81,9 @@ async function ensureAgreementShareToken(agreementId) {
     throw new Error('Failed to allocate agreement share token');
 }
 
-function getBackendBaseUrlFromReq(req) {
-    if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/$/, '');
-    const protocol = req.protocol || 'https';
-    const host = req.headers.host;
-    if (host) return `${protocol}://${host}`;
-    return 'http://localhost:5000';
-}
-
 function buildAgreementShareLinkJwtFallback(req, agreementId) {
     const token = jwt.sign({ agreementId }, process.env.JWT_SECRET, { expiresIn: AGREEMENT_SHARE_TOKEN_TTL });
-    const backendBase = getBackendBaseUrlFromReq(req);
+    const backendBase = getPublicApiBaseUrl(req);
     return `${backendBase}/api/agreements/share/${agreementId}?token=${encodeURIComponent(token)}`;
 }
 
@@ -102,7 +96,7 @@ async function buildAgreementShareLink(req, agreementId) {
     try {
         const shareToken = await ensureAgreementShareToken(agreementId);
         if (!shareToken) throw new Error('Agreement not found');
-        const backendBase = getBackendBaseUrlFromReq(req);
+        const backendBase = getPublicApiBaseUrl(req);
         return `${backendBase}/api/a/${shareToken}`;
     } catch (err) {
         console.warn('Short agreement share link unavailable, using JWT fallback:', err?.message || err);
@@ -149,6 +143,15 @@ function buildAgreementData(contract, company) {
         contract?.dropoffDate,
         contract?.dropoffTime
     );
+    const dailyRate = Number(contract?.appliedDailyRate || 0);
+    const rentalDayUnits =
+        computeRentalDayUnits(
+            contract?.pickupDate,
+            contract?.pickupTime,
+            contract?.dropoffDate,
+            contract?.dropoffTime
+        ) ?? days;
+    const totalRentalAmount = Number((dailyRate * rentalDayUnits).toFixed(2));
     const secondPartyName = contract?.customer?.name || contract?.customer?.companyName || '';
     const secondPartyAddress = contract?.customer?.address || '';
     const secondPartyNic = contract?.customer?.nicOrPassport || contract?.customer?.passportNo || '';
@@ -172,7 +175,8 @@ function buildAgreementData(contract, company) {
             model: contract?.vehicle?.vehicleModel?.name || '',
         },
         financials: {
-            dailyRate: Number(contract?.appliedDailyRate || 0),
+            dailyRate,
+            totalRentalAmount,
             securityDeposit: Number(contract?.securityDeposit || 0),
             deliveryCharge: Number(contract?.deliveryCharge || 0),
             collectionCharge: Number(contract?.collectionCharge || 0),
@@ -212,6 +216,9 @@ function renderAgreementHtml(agreement) {
         }
     }
     const rentalDaysLabel = rentalDays > 0 ? String(rentalDays) : '';
+    const totalRentalAmount =
+        Number(financials.totalRentalAmount ?? 0) ||
+        Number((Number(financials.dailyRate || 0) * rentalDays).toFixed(2));
     const firstPartyName = company.name || '';
     const companyAddress = company.address || '';
     const companyWebsite = company.website || '';
@@ -335,7 +342,7 @@ function renderAgreementHtml(agreement) {
     <div class="para">Branch Name: ${line('', 220)}</div>
     <div class="para">Bank Name: ${line('', 220)}</div>
     <div class="para">For other nationalities, the deposit will be refunded in cash or transfer back to the credit card.</div>
-    <div class="para"><b>8. Initial Payments</b> Upon signing this Agreement, the Second Party must pay the deposit of Rs. ${line(Number(financials.securityDeposit || 0).toLocaleString(), 140)} and the total rental amount of Rs. ${line(Number(financials.dailyRate || 0).toLocaleString(), 140)} for the period of ${line(rentalDaysLabel, 130)} (days/weeks/months) and the delivery and pick up fee ${line(Number((financials.deliveryCharge || 0) + (financials.collectionCharge || 0)).toLocaleString(), 120)} to the First Party.</div>
+    <div class="para"><b>8. Initial Payments</b> Upon signing this Agreement, the Second Party must pay the deposit of Rs. ${line(Number(financials.securityDeposit || 0).toLocaleString(), 140)} and the total rental amount of Rs. ${line(Number(totalRentalAmount).toLocaleString(), 140)} for the period of ${line(rentalDaysLabel, 130)} (days/weeks/months) and the delivery and pick up fee ${line(Number((financials.deliveryCharge || 0) + (financials.collectionCharge || 0)).toLocaleString(), 120)} to the First Party.</div>
     <div class="para"><b>9. Long-Term Contracts</b> For contracts exceeding 6 months, the starting date will be considered as the first day. Payments should be made before ${line('28th', 120)} of each month, calculated from the date of vehicle delivery.</div>
     <div class="para"><b>10. Mileage Limit</b> The Second Party is entitled to a maximum mileage of ${line(Number(financials.allocatedKm || 0).toLocaleString(), 140)} kilometers. For each kilometer exceeding this limit, an extra charge of Rs. ${line(Number(financials.extraMileageCharge || 0).toLocaleString(), 140)} per kilometer will apply.</div>
     <div class="para"><b>11. Mileage Notification</b> The Second Party must inform the First Party upon exceeding the mileage limit and pay in advance for additional mileage units.</div>
@@ -487,8 +494,17 @@ exports.createAgreementForContract = async (req, res) => {
             return res.status(400).json({ message: `Agreement can only be generated when contract is UPCOMING or IN_PROGRESS (current: ${contract.status})` });
         }
 
+        const freshContract = await prisma.contract.findUnique({
+            where: { id: contractId },
+            include: {
+                customer: true,
+                vehicle: { include: { vehicleModel: { include: { brand: true } } } },
+            },
+        });
+        if (!freshContract) return res.status(404).json({ message: 'Contract not found' });
+
         const company = await getCompanyProfileFromSettings();
-        const data = buildAgreementData(contract, company);
+        const data = buildAgreementData(freshContract, company);
 
         // Setup native driver — avoids P2031 on standalone MongoDB
         const mClient = await getMongoClient();
@@ -571,8 +587,19 @@ exports.getAgreementShareLink = async (req, res) => {
  * and the short URL (`/api/a/:shareToken`).
  */
 async function sendAgreementHtml(req, res, agreement) {
-    // Fallback: if older agreement snapshot has no company/logo, use current settings.
     const currentCompany = await getCompanyProfileFromSettings();
+
+    let odometerStart = Number(agreement.data?.vehicle?.odometerStart || 0);
+    if (agreement.contractId) {
+        const liveContract = await prisma.contract.findUnique({
+            where: { id: agreement.contractId },
+            select: { startOdometer: true },
+        });
+        if (liveContract?.startOdometer != null) {
+            odometerStart = Number(liveContract.startOdometer) || 0;
+        }
+    }
+
     const agreementForRender = {
         ...agreement,
         data: {
@@ -580,6 +607,10 @@ async function sendAgreementHtml(req, res, agreement) {
             company: {
                 ...(agreement.data?.company || {}),
                 ...currentCompany,
+            },
+            vehicle: {
+                ...(agreement.data?.vehicle || {}),
+                odometerStart,
             },
         },
     };

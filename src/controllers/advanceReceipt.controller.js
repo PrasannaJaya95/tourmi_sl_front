@@ -6,6 +6,7 @@ const { ObjectId } = require('mongodb');
 const invoiceCtrl = require('./invoice.controller');
 const { DOCUMENT_PRINT_STYLES } = require('../lib/documentPrintStyles');
 const { formatDate, formatDateTime } = require('../lib/dates');
+const { getPublicApiBaseUrl } = require('../lib/publicApiUrl');
 
 const AR_SHARE_TTL = '7d';
 
@@ -40,25 +41,9 @@ function buildRarNo(sequence, date = new Date()) {
     return `RAR/${mm}/${yyyy}/${pad(sequence, 5)}`;
 }
 
-function getBackendBaseUrlFromReq(req) {
-    if (process.env.BACKEND_URL) {
-        return process.env.BACKEND_URL.replace(/\/$/, '');
-    }
-    const protocol = req.protocol || 'https';
-    const host = req.headers.host;
-    if (host) return `${protocol}://${host}`;
-    const origin = req.headers.origin || req.headers.referer;
-    if (!origin) return 'http://localhost:5000';
-    try {
-        return new URL(origin).origin;
-    } catch {
-        return 'http://localhost:5000';
-    }
-}
-
 function buildAdvanceReceiptShareLink(req, receiptId) {
     const token = jwt.sign({ advanceReceiptId: receiptId }, process.env.JWT_SECRET, { expiresIn: AR_SHARE_TTL });
-    const backendBase = getBackendBaseUrlFromReq(req);
+    const backendBase = getPublicApiBaseUrl(req);
     return `${backendBase}/api/advance-receipts/share/${receiptId}?token=${encodeURIComponent(token)}`;
 }
 
@@ -483,7 +468,7 @@ exports.issueAdvanceReceipt = async (req, res) => {
         });
         if (voidOnly && !liveUpfront) {
             throw new Error(
-                'Upfront invoice is void. Recreate the upfront invoice from the Invoices page before posting an advance receipt.',
+                'Proforma Invoice is void. Recreate the Proforma Invoice from the Invoices page before posting an advance receipt.',
             );
         }
 
@@ -515,7 +500,7 @@ exports.issueAdvanceReceipt = async (req, res) => {
 
         // Native Ensure Upfront Invoice
         const inv = await invoiceCtrl.ensureUpfrontInvoiceNative(db, contractId, contract, 'LKR');
-        if (!inv) throw new Error('Could not prepare upfront invoice');
+        if (!inv) throw new Error('Could not prepare Proforma Invoice');
 
         const paidSum = invoiceCtrl.sumPaymentsTowardBalance(inv);
         const netTotal = invoiceCtrl.roundMoney(Number(inv.total || 0));
@@ -652,7 +637,7 @@ exports.getAdvanceReceiptHtml = async (req, res) => {
         });
         if (!receipt) return res.status(404).send('Receipt not found');
         const company = await invoiceCtrl.getCompanyProfileFromSettings();
-        const baseUrl = getBackendBaseUrlFromReq(req);
+        const baseUrl = getPublicApiBaseUrl(req);
         res.type('text/html').send(renderAdvanceReceiptHtml(receipt, company, baseUrl));
     } catch (error) {
         console.error('Advance receipt HTML error:', error);
@@ -676,7 +661,7 @@ exports.getReversalPreviewHtml = async (req, res) => {
             return res.status(400).send('No linked invoice payment found for this receipt.');
         }
         const company = await invoiceCtrl.getCompanyProfileFromSettings();
-        const baseUrl = getBackendBaseUrlFromReq(req);
+        const baseUrl = getPublicApiBaseUrl(req);
         const mm = String(new Date().getMonth() + 1).padStart(2, '0');
         const yyyy = String(new Date().getFullYear());
         const provisional = `RAR/${mm}/${yyyy}/##### (on confirm)`;
@@ -822,7 +807,7 @@ exports.getReversalHtml = async (req, res) => {
         });
         if (!reversal) return res.status(404).send('Not found');
         const company = await invoiceCtrl.getCompanyProfileFromSettings();
-        const baseUrl = getBackendBaseUrlFromReq(req);
+        const baseUrl = getPublicApiBaseUrl(req);
         res.type('text/html').send(
             renderAdvanceReversalIssuedHtml(reversal, reversal.advanceReceipt, company, baseUrl),
         );
@@ -856,7 +841,7 @@ exports.getSharedAdvanceReceipt = async (req, res) => {
         if (!receipt) return res.status(404).send('Receipt not found');
 
         const company = await invoiceCtrl.getCompanyProfileFromSettings();
-        const baseUrl = getBackendBaseUrlFromReq(req);
+        const baseUrl = getPublicApiBaseUrl(req);
         res.type('text/html').send(renderAdvanceReceiptHtml(receipt, company, baseUrl));
     } catch (error) {
         console.error('Shared advance receipt error:', error);

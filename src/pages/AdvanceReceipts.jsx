@@ -241,7 +241,7 @@ const AdvanceReceipts = () => {
                         <div>
                             <h1 className="text-3xl font-black tracking-tight">Advance receipts</h1>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Creating a receipt posts the advance to the upfront invoice and P&amp;L. Use reversal
+                                Creating a receipt posts the advance to the Proforma Invoice and P&amp;L. Use reversal
                                 (RAR) to undo posting.
                             </p>
                         </div>

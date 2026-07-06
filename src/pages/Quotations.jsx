@@ -38,6 +38,17 @@ function qEscape(str) {
         .replace(/'/g, '&#039;');
 }
 
+/** Customer-facing quotation views: brand/model and specs only — no license plate. */
+function formatCustomerQuotationVehicle(vehicle) {
+    const title = `${vehicle?.vehicleModel?.brand?.name || ''} ${vehicle?.vehicleModel?.name || ''}`.trim() || 'Vehicle';
+    const details = [];
+    if (vehicle?.year) details.push(String(vehicle.year));
+    if (vehicle?.transmission) details.push(vehicle.transmission);
+    if (vehicle?.color) details.push(vehicle.color);
+    if (vehicle?.fleetCategory?.name) details.push(vehicle.fleetCategory.name);
+    return { title, subtitle: details.join(' · ') };
+}
+
 /** Local calendar date + time (HH:mm) → ISO string for API / storage */
 function combineLocalDateTimeToIso(dateYmd, timeHm) {
     const [y, mo, d] = String(dateYmd || '').split('-').map(Number);
@@ -485,7 +496,7 @@ export default function Quotations() {
 
     const buildQuotationWhatsAppText = (q, vehicle, shareUrl = '') => {
         const veh = vehicle || q.vehicle;
-        const vehLabel = `${veh?.vehicleModel?.brand?.name || ''} ${veh?.vehicleModel?.name || ''}`.trim();
+        const customerVehicle = formatCustomerQuotationVehicle(veh);
         const issueDate = q.issueDate ? new Date(q.issueDate) : new Date();
         const validUntil = q.validUntil ? new Date(q.validUntil) : addDays(issueDate, 7);
         const rows = Array.isArray(q.extraCharges) ? q.extraCharges : [];
@@ -498,7 +509,7 @@ export default function Quotations() {
             `Hello ${q.customerName || 'there'},`,
             '',
             `Quotation *${q.quotationNo || 'Draft'}*`,
-            `Vehicle: ${veh?.licensePlate || '-'}${vehLabel ? ` (${vehLabel})` : ''}`,
+            `Vehicle: ${customerVehicle.title}${customerVehicle.subtitle ? ` (${customerVehicle.subtitle})` : ''}`,
             `Period: ${formatQuotationDateTime(q.pickupDate)} → ${formatQuotationDateTime(q.dropoffDate)} (${formatRentalPeriod(q.pickupDate, q.dropoffDate)})`,
             `Daily rate: LKR ${Number(q.dailyRate || 0).toLocaleString()}`,
             `Base rental: LKR ${Number(q.baseAmount || 0).toLocaleString()}`,
@@ -584,13 +595,13 @@ export default function Quotations() {
             return;
         }
         const phoneRaw =
-            (savedQuotation && pickCustomerWhatsAppPhone(savedQuotation.customer)) ||
             quotationWhatsAppPhone.trim() ||
+            pickCustomerWhatsAppPhone(savedQuotation?.customer) ||
             pickCustomerWhatsAppPhone(selectedCustomer);
         const phone = normalizePhoneForWhatsApp(phoneRaw);
         if (!phone) {
             alert(
-                'No WhatsApp number found. For new customers, enter mobile/WhatsApp below. For existing customers, ensure phone or mobile is saved on the customer record.'
+                'Invalid WhatsApp number. Use a Sri Lankan mobile like 0771234567 or 94771234567 (the field above is used first for new customers).'
             );
             return;
         }
@@ -688,7 +699,7 @@ export default function Quotations() {
             ? `<div class="doc-brand-row">${logoImg}<div>${nameBlock}${addrBlock}${chipRow}</div></div>`
             : '';
 
-        const vehLabel = `${vehicle?.vehicleModel?.brand?.name || ''} ${vehicle?.vehicleModel?.name || ''}`.trim();
+        const customerVehicle = formatCustomerQuotationVehicle(vehicle);
         const rowsHtml = `
       <tr><td>Base rental (${qEscape(formatRentalPeriod(q.pickupDate, q.dropoffDate))} @ ${Number(q.dailyRate || 0).toLocaleString()} LKR/day)</td><td>${Number(q.baseAmount || 0).toLocaleString()}</td></tr>
       ${rows.map((r) => `
@@ -730,8 +741,8 @@ export default function Quotations() {
         </div>
         <div class="doc-card">
           <div class="doc-card-label">Vehicle</div>
-          <div class="doc-card-value">${qEscape(vehicle?.licensePlate || '')}</div>
-          <div class="doc-card-sub">${qEscape(vehLabel)}</div>
+          <div class="doc-card-value">${qEscape(customerVehicle.title)}</div>
+          <div class="doc-card-sub">${qEscape(customerVehicle.subtitle)}</div>
         </div>
       </div>
 
